@@ -72,6 +72,7 @@ best_solutions = []
 
 
 # Main game loop
+paused = False 
 running = True
 while running:
     for event in pygame.event.get():
@@ -80,6 +81,13 @@ while running:
         elif event.type == pygame.KEYDOWN:
             if event.key == pygame.K_q:
                 running = False
+            elif event.key == pygame.K_p:  # Tecla P para pausar/despausar
+                paused = not paused
+    
+        
+    if paused:
+        pygame.time.wait(100)  # Espera 100ms para não travar a CPU
+        continue
 
     generation = next(generation_counter)
 

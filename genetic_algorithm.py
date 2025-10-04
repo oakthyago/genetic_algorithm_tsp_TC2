@@ -114,7 +114,15 @@ def order_crossover(parent1: List[Tuple[float, float]], parent2: List[Tuple[floa
 # population = [(random.randint(0, 100), random.randint(0, 100))
 #           for _ in range(3)]
 
-
+def nearest_neighbour_route(cities_locations):
+    unvisited = cities_locations[:]
+    route = [unvisited.pop(0)]
+    while unvisited:
+        last = route[-1]
+        next_city = min(unvisited, key=lambda city: calculate_distance(last, city))
+        route.append(next_city)
+        unvisited.remove(next_city)
+    return route
 
 # TODO: implement a mutation_intensity and invert pieces of code instead of just swamping two. 
 def mutate(solution:  List[Tuple[float, float]], mutation_probability: float) ->  List[Tuple[float, float]]:

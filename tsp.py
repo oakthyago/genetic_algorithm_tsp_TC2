@@ -2,7 +2,7 @@ import pygame
 from pygame.locals import *
 import random
 import itertools
-from genetic_algorithm import mutate, order_crossover, generate_random_population, calculate_fitness, sort_population, default_problems
+from genetic_algorithm import mutate, order_crossover, generate_random_population, calculate_fitness, sort_population, default_problems,nearest_neighbour_route
 from draw_functions import draw_paths, draw_plot, draw_cities
 import sys
 import numpy as np
@@ -18,7 +18,7 @@ FPS = 30
 PLOT_X_OFFSET = 450
 
 # GA
-N_CITIES = 15
+N_CITIES = 30
 POPULATION_SIZE = 100
 N_GENERATIONS = None
 MUTATION_PROBABILITY = 0.5
@@ -66,7 +66,9 @@ generation_counter = itertools.count(start=1)  # Start the counter at 1
 
 # Create Initial Population
 # TODO:- use some heuristic like Nearest Neighbour our Convex Hull to initialize
-population = generate_random_population(cities_locations, POPULATION_SIZE)
+# Gera 1 solução heurística e o resto aleatório
+population = [nearest_neighbour_route(cities_locations)]
+population += generate_random_population(cities_locations, POPULATION_SIZE - 1)
 best_fitness_values = []
 best_solutions = []
 

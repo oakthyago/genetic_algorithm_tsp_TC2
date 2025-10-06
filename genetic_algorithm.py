@@ -41,6 +41,35 @@ def calculate_distance(point1: Tuple[float, float], point2: Tuple[float, float])
     return math.sqrt((point1[0] - point2[0]) ** 2 + (point1[1] - point2[1]) ** 2)
 
 
+def fix_individual(individual, all_cities, n_vehicles):
+    """
+    Garante que cada cidade aparece exatamente uma vez nas rotas do indivíduo.
+    """
+    # Junta todas as cidades do indivíduo
+    flat = [city for route in individual for city in route]
+    # Adiciona cidades faltantes
+    missing = [city for city in all_cities if city not in flat]
+    flat += missing
+    # Remove cidades duplicadas mantendo só a primeira ocorrência
+    seen = set()
+    flat_unique = []
+    for city in flat:
+        if city not in seen:
+            flat_unique.append(city)
+            seen.add(city)
+    # Divide igualmente entre os veículos
+    split = [flat_unique[i::n_vehicles] for i in range(n_vehicles)]
+    return split
+
+def calculate_fitness_multi_vehicle(individual: List[List[Tuple[float, float]]]) -> float:
+    """
+    Calcula o fitness de uma solução multi-veículo (lista de rotas).
+    O fitness é a soma das distâncias de todas as rotas.
+    """
+    return sum(calculate_fitness(route) for route in individual)
+
+
+
 def calculate_fitness(path: List[Tuple[float, float]]) -> float:
     """
     Calculate the fitness of a given path based on the total Euclidean distance.
@@ -113,6 +142,14 @@ def order_crossover(parent1: List[Tuple[float, float]], parent2: List[Tuple[floa
 
 # population = [(random.randint(0, 100), random.randint(0, 100))
 #           for _ in range(3)]
+def generate_random_population_multi_vehicle(cities, population_size, n_vehicles):
+    population = []
+    for _ in range(population_size):
+        shuffled = random.sample(cities, len(cities))
+        # Divide as cidades igualmente entre os veículos
+        split = [shuffled[i::n_vehicles] for i in range(n_vehicles)]
+        population.append(split)
+    return population
 
 def nearest_neighbour_route(cities_locations):
     unvisited = cities_locations[:]

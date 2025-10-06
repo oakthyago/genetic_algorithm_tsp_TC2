@@ -2,7 +2,7 @@ import pygame
 from pygame.locals import *
 import random
 import itertools
-from genetic_algorithm import mutate, order_crossover, generate_random_population, calculate_fitness, sort_population, default_problems,nearest_neighbour_route
+from genetic_algorithm import mutate, order_crossover, generate_random_population, calculate_fitness, sort_population, default_problems,nearest_neighbour_route, generate_random_population_multi_vehicle , calculate_fitness_multi_vehicle, fix_individual
 from draw_functions import draw_paths, draw_plot, draw_cities
 import sys
 import numpy as np
@@ -18,7 +18,7 @@ FPS = 30
 PLOT_X_OFFSET = 450
 
 # GA
-N_CITIES = 30
+N_CITIES = 20
 POPULATION_SIZE = 100
 N_GENERATIONS = None
 MUTATION_PROBABILITY = 0.5
@@ -67,8 +67,10 @@ generation_counter = itertools.count(start=1)  # Start the counter at 1
 # Create Initial Population
 # TODO:- use some heuristic like Nearest Neighbour our Convex Hull to initialize
 # Gera 1 solução heurística e o resto aleatório
-population = [nearest_neighbour_route(cities_locations)]
-population += generate_random_population(cities_locations, POPULATION_SIZE - 1)
+# 
+
+N_VEHICLES = 4  # ou o número desejado
+population = generate_random_population_multi_vehicle(cities_locations, POPULATION_SIZE, N_VEHICLES)
 best_fitness_values = []
 best_solutions = []
 
@@ -95,13 +97,12 @@ while running:
 
     screen.fill(WHITE)
 
-    population_fitness = [calculate_fitness(
-        individual) for individual in population]
+    population_fitness = [calculate_fitness_multi_vehicle(individual) for individual in population]
 
     population, population_fitness = sort_population(
         population,  population_fitness)
 
-    best_fitness = calculate_fitness(population[0])
+    best_fitness = calculate_fitness_multi_vehicle(population[0])
     best_solution = population[0]
 
     best_fitness_values.append(best_fitness)
@@ -111,8 +112,18 @@ while running:
               best_fitness_values, y_label="Fitness - Distance (pxls)")
 
     draw_cities(screen, cities_locations, RED, NODE_RADIUS)
-    draw_paths(screen, best_solution, BLUE, width=3)
-    draw_paths(screen, population[1], rgb_color=(128, 128, 128), width=1)
+    # Desenha as rotas do melhor indivíduo (best_solution)
+   # Defina uma lista de cores para os veículos
+    VEHICLE_COLORS = [(0, 0, 255), (0, 200, 0), (255, 128, 0), (128, 0, 128)]  # Azul, Verde, Laranja, Roxo...
+
+    # Desenha as rotas do melhor indivíduo (best_solution)
+    for idx, route in enumerate(best_solution):
+        color = VEHICLE_COLORS[idx % len(VEHICLE_COLORS)]
+        draw_paths(screen, route, color, width=3)
+
+# Desenha as rotas do segundo melhor indivíduo (population[1]) em cinza
+    for route in population[1]:
+        draw_paths(screen, route, rgb_color=(128, 128, 128), width=1)
 
     print(f"Generation {generation}: Best fitness = {round(best_fitness, 2)}")
 
@@ -130,9 +141,8 @@ while running:
 
         # child1 = order_crossover(parent1, parent2)
         child1 = order_crossover(parent1, parent2)
-
         child1 = mutate(child1, MUTATION_PROBABILITY)
-
+        child1 = fix_individual(child1, cities_locations, N_VEHICLES)  # <-- Adicione esta linha
         new_population.append(child1)
 
     population = new_population

@@ -3,7 +3,7 @@ from pygame.locals import *
 import random
 import itertools
 from genetic_algorithm import mutate, order_crossover, generate_random_population, calculate_fitness, sort_population, default_problems,nearest_neighbour_route, generate_random_population_multi_vehicle , calculate_fitness_multi_vehicle, fix_individual
-from draw_functions import draw_paths, draw_plot, draw_cities
+from draw_functions import draw_paths, draw_plot, draw_cities, generate_random_colors
 import sys
 import numpy as np
 import pygame
@@ -69,7 +69,8 @@ generation_counter = itertools.count(start=1)  # Start the counter at 1
 # Gera 1 solução heurística e o resto aleatório
 # 
 
-N_VEHICLES = 4  # ou o número desejado
+N_VEHICLES = 6  # ou o número desejado
+VEHICLE_COLORS = generate_random_colors(N_VEHICLES)
 population = generate_random_population_multi_vehicle(cities_locations, POPULATION_SIZE, N_VEHICLES)
 best_fitness_values = []
 best_solutions = []
@@ -114,8 +115,7 @@ while running:
     draw_cities(screen, cities_locations, RED, NODE_RADIUS)
     # Desenha as rotas do melhor indivíduo (best_solution)
    # Defina uma lista de cores para os veículos
-    VEHICLE_COLORS = [(0, 0, 255), (0, 200, 0), (255, 128, 0), (128, 0, 128)]  # Azul, Verde, Laranja, Roxo...
-
+    
     # Desenha as rotas do melhor indivíduo (best_solution)
     for idx, route in enumerate(best_solution):
         color = VEHICLE_COLORS[idx % len(VEHICLE_COLORS)]

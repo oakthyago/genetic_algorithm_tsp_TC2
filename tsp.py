@@ -9,6 +9,7 @@ from genetic_algorithm import (
 )
 from draw_functions import draw_paths, draw_plot, draw_cities, generate_random_colors
 import sys
+from demo_mutation import mutate_exchange_between_vehicles
 import numpy as np
 from benchmark_att48 import *
 
@@ -28,7 +29,7 @@ RED = (255, 0, 0)
 BLUE = (0, 0, 255)
 
 # --- DEFINA O NÚMERO DE VEÍCULOS ---
-N_VEHICLES = 1 # Altere para 1 para TSP clássico, ou mais para multi-veículo
+N_VEHICLES = 2 # Altere para 1 para TSP clássico, ou mais para multi-veículo
 
 # --- GERAÇÃO DAS CIDADES ---
 cities_locations = [
@@ -96,6 +97,7 @@ while running:
 
     draw_cities(screen, cities_locations, RED, NODE_RADIUS)
 
+
     # --- DESENHO DAS ROTAS ---
     if N_VEHICLES == 1:
         if len(best_solution) >= 2:
@@ -111,12 +113,14 @@ while running:
             if len(route) >= 2:
                 draw_paths(screen, route, rgb_color=(128, 128, 128), width=1)
 
+
     print(f"Generation {generation}: Best fitness = {round(best_fitness, 2)}")
 
     # --- NOVA POPULAÇÃO ---
     new_population = [population[0]]  # ELITISM
 
     while len(new_population) < POPULATION_SIZE:
+
         if N_VEHICLES == 1:
             probability = 1 / np.array(population_fitness)
             parent1, parent2 = random.choices(population, weights=probability, k=2)

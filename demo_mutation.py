@@ -33,6 +33,18 @@ def mutate(solution, mutation_probability):
         
         
     
+def mutate_exchange_between_vehicles(individual, mutation_prob=0.1):
+    """Move uma cidade aleatória de um veículo para outro."""
+    if random.random() < mutation_prob and len(individual) > 1:
+        # Escolhe dois veículos diferentes
+        v1, v2 = random.sample(range(len(individual)), 2)
+        if individual[v1]:  # Só move se o veículo tiver cidades
+            idx = random.randrange(len(individual[v1]))
+            city = individual[v1].pop(idx)
+            insert_pos = random.randrange(len(individual[v2]) + 1)
+            individual[v2].insert(insert_pos, city)
+    return individual
+
 # Example usage:
 original_solution =[(99, 100), (2, 50), (1, 71)]
 mutation_probability = 1

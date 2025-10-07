@@ -11,8 +11,20 @@ from matplotlib.backends.backend_agg import FigureCanvasAgg
 import matplotlib
 import pygame
 from typing import List, Tuple
+import random
 
 matplotlib.use("Agg")
+
+def generate_random_colors(n):
+    """Gera n cores RGB aleatórias e brilhantes."""
+    colors = []
+    for _ in range(n):
+        # Garante cores vivas (evita tons muito escuros)
+        color = tuple(random.randint(80, 255) for _ in range(3))
+        colors.append(color)
+    return colors
+
+# ...existing code...
 
 
 def draw_plot(screen: pygame.Surface, x: list, y: list, x_label: str = 'Generation', y_label: str = 'Fitness') -> None:
@@ -25,7 +37,10 @@ def draw_plot(screen: pygame.Surface, x: list, y: list, x_label: str = 'Generati
     - y (list): The y-axis values.
     - x_label (str): Label for the x-axis (default is 'Generation').
     - y_label (str): Label for the y-axis (default is 'Fitness').
+    
     """
+
+
     import numpy as np  # Adicione aqui para garantir que está disponível
     fig, ax = plt.subplots(figsize=(4, 4), dpi=100)
     ax.plot(x, y)

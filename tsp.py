@@ -69,7 +69,7 @@ generation_counter = itertools.count(start=1)  # Start the counter at 1
 # Gera 1 solução heurística e o resto aleatório
 # 
 
-N_VEHICLES = 4  # ou o número desejado
+N_VEHICLES = 6  # ou o número desejado
 VEHICLE_COLORS = generate_random_colors(N_VEHICLES)
 population = generate_random_population_multi_vehicle(cities_locations, POPULATION_SIZE, N_VEHICLES)
 best_fitness_values = []

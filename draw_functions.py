@@ -12,6 +12,8 @@ import matplotlib
 import pygame
 from typing import List, Tuple
 import random
+random.seed(2)  # Fixe o seed ANTES de gerar as cores
+
 
 matplotlib.use("Agg")
 

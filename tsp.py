@@ -28,8 +28,10 @@ BLACK = (0, 0, 0)
 RED = (255, 0, 0)
 BLUE = (0, 0, 255)
 
-# --- DEFINA O NÚMERO DE VEÍCULOS ---
-N_VEHICLES = 2 # Altere para 1 para TSP clássico, ou mais para multi-veículo
+N_VEHICLES = 1
+VEHICLE_AUTONOMY = 500
+MAX_STABLE_GENERATIONS = 100
+
 random.seed(42)  # Escolha qualquer número inteiro para a seed
 # --- GERAÇÃO DAS CIDADES ---
 cities_locations = [
@@ -37,7 +39,7 @@ cities_locations = [
      random.randint(NODE_RADIUS, HEIGHT - NODE_RADIUS))
     for _ in range(N_CITIES)
 ]
-random.seed()
+
 # --- INICIALIZAÇÃO DA POPULAÇÃO E CORES ---
 if N_VEHICLES == 1:
     VEHICLE_COLORS = [BLUE]
@@ -50,7 +52,7 @@ else:
 
 best_fitness_values = []
 best_solutions = []
-
+random.seed()
 # --- INICIALIZAÇÃO DO PYGAME ---
 pygame.init()
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
@@ -60,6 +62,10 @@ generation_counter = itertools.count(start=1)
 
 paused = False
 running = True
+
+stable_generations = 0
+last_fitness_veiculos = None
+
 while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
@@ -83,6 +89,7 @@ while running:
         population, population_fitness = sort_population(population, population_fitness)
         best_fitness = calculate_fitness(population[0])
         best_solution = population[0]
+        fitness_veiculos = [round(best_fitness, 2)]
     else:
         population_fitness = [calculate_fitness_multi_vehicle(ind) for ind in population]
         population, population_fitness = sort_population(population, population_fitness)
@@ -120,6 +127,28 @@ while running:
         print(f"Generation {generation}: Best fitness = {round(best_fitness, 2)} | Fitness individual de cada veículo: {fitness_veiculos}")
     else:
         print(f"Generation {generation}: Best fitness = {round(best_fitness, 2)}")
+
+    # --- CHECAGEM DE AUTONOMIA E ESTABILIDADE ---
+# --- CHECAGEM DE AUTONOMIA E ESTABILIDADE ---
+    if last_fitness_veiculos == fitness_veiculos:
+        stable_generations += 1
+    else:
+        stable_generations = 0
+    last_fitness_veiculos = fitness_veiculos.copy()
+    if any(f > VEHICLE_AUTONOMY for f in fitness_veiculos) and stable_generations >= MAX_STABLE_GENERATIONS:
+        print(f"Necessário mais veículos! Incrementando para {N_VEHICLES + 1} e reiniciando população.")
+        N_VEHICLES += 1
+        VEHICLE_COLORS = generate_random_colors(N_VEHICLES)
+        population = generate_random_population_multi_vehicle(cities_locations, POPULATION_SIZE, N_VEHICLES)
+        best_fitness_values = []
+        best_solutions = []
+        stable_generations = 0
+        last_fitness_veiculos = None
+        generation_counter = itertools.count(start=1)
+        continue
+    # --- NOVA POPULAÇÃO ---
+    new_population = [population[0]]  # ELITISM
+    
 
     # --- NOVA POPULAÇÃO ---
     new_population = [population[0]]  # ELITISM

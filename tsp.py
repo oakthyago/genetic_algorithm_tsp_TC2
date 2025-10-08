@@ -29,7 +29,7 @@ RED = (255, 0, 0)
 BLUE = (0, 0, 255)
 
 # --- DEFINA O NÚMERO DE VEÍCULOS ---
-N_VEHICLES = 2 # Altere para 1 para TSP clássico, ou mais para multi-veículo
+N_VEHICLES = 3 # Altere para 1 para TSP clássico, ou mais para multi-veículo
 
 # --- GERAÇÃO DAS CIDADES ---
 cities_locations = [
@@ -88,6 +88,9 @@ while running:
         population, population_fitness = sort_population(population, population_fitness)
         best_fitness = calculate_fitness_multi_vehicle(population[0])
         best_solution = population[0]
+                # Adicione este bloco para mostrar o fitness individual de cada veículo
+        fitness_veiculos = [round(calculate_fitness(route), 2) for route in best_solution]
+        print("Fitness individual de cada veículo:", fitness_veiculos)
 
     best_fitness_values.append(best_fitness)
     best_solutions.append(best_solution)

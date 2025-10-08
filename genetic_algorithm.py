@@ -12,6 +12,13 @@ default_problems = {
 15:[(512, 317), (741, 72), (552, 50), (772, 346), (637, 12), (589, 131), (732, 165), (605, 15), (730, 38), (576, 216), (589, 381), (711, 387), (563, 228), (494, 22), (787, 288)]
 }
 
+
+def fitness_por_veiculo(individual):
+    """
+    Retorna uma lista com o fitness (distância) de cada rota de um indivíduo multi-veículo.
+    """
+    return [calculate_fitness(route) for route in individual]
+
 def generate_random_population(cities_location: List[Tuple[float, float]], population_size: int) -> List[List[Tuple[float, float]]]:
     """
     Generate a random population of routes for a given set of cities.

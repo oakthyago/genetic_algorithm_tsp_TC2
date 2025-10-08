@@ -88,6 +88,7 @@ while running:
         population, population_fitness = sort_population(population, population_fitness)
         best_fitness = calculate_fitness_multi_vehicle(population[0])
         best_solution = population[0]
+        fitness_veiculos = [round(calculate_fitness(route), 2) for route in best_solution]
 
     best_fitness_values.append(best_fitness)
     best_solutions.append(best_solution)
@@ -114,7 +115,11 @@ while running:
                 draw_paths(screen, route, rgb_color=(128, 128, 128), width=1)
 
 
-    print(f"Generation {generation}: Best fitness = {round(best_fitness, 2)}")
+    
+    if N_VEHICLES > 1:
+        print(f"Generation {generation}: Best fitness = {round(best_fitness, 2)} | Fitness individual de cada veículo: {fitness_veiculos}")
+    else:
+        print(f"Generation {generation}: Best fitness = {round(best_fitness, 2)}")
 
     # --- NOVA POPULAÇÃO ---
     new_population = [population[0]]  # ELITISM

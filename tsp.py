@@ -30,14 +30,14 @@ BLUE = (0, 0, 255)
 
 # --- DEFINA O NÚMERO DE VEÍCULOS ---
 N_VEHICLES = 2 # Altere para 1 para TSP clássico, ou mais para multi-veículo
-
+random.seed(42)  # Escolha qualquer número inteiro para a seed
 # --- GERAÇÃO DAS CIDADES ---
 cities_locations = [
     (random.randint(NODE_RADIUS + PLOT_X_OFFSET, WIDTH - NODE_RADIUS),
      random.randint(NODE_RADIUS, HEIGHT - NODE_RADIUS))
     for _ in range(N_CITIES)
 ]
-
+random.seed()
 # --- INICIALIZAÇÃO DA POPULAÇÃO E CORES ---
 if N_VEHICLES == 1:
     VEHICLE_COLORS = [BLUE]

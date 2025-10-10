@@ -68,7 +68,9 @@ def calculate_fitness_multi_vehicle(individual: List[List[Tuple[float, float]]])
     """
     return sum(calculate_fitness(route) for route in individual)
 
-
+def calculate_fitness_multi_vehicle_balanced(individual):
+    # O fitness é a maior distância entre as rotas dos veículos
+    return max(calculate_fitness(route) for route in individual)
 
 def calculate_fitness(path: List[Tuple[float, float]]) -> float:
     """

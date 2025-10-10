@@ -4,6 +4,8 @@ import random
 import math
 import copy 
 from typing import List, Tuple
+import numpy as np
+from sklearn.cluster import KMeans
 
 default_problems = {
 5: [(733, 251), (706, 87), (546, 97), (562, 49), (576, 253)],

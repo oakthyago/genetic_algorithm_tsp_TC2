@@ -5,7 +5,7 @@ import itertools
 from genetic_algorithm import (
     mutate, order_crossover, generate_random_population, calculate_fitness, sort_population,
     default_problems, nearest_neighbour_route, generate_random_population_multi_vehicle,
-    calculate_fitness_multi_vehicle, fix_individual, calculate_fitness_multi_vehicle_balanced
+    calculate_fitness_multi_vehicle, fix_individual, calculate_fitness_multi_vehicle_balanced,heuristic_multi_vehicle_solution
 )
 from draw_functions import draw_paths, draw_plot, draw_cities, generate_random_colors
 import sys
@@ -31,7 +31,10 @@ BLUE = (0, 0, 255)
 
 N_VEHICLES = 1
 VEHICLE_AUTONOMY = 500
-MAX_STABLE_GENERATIONS = 150
+MAX_STABLE_GENERATIONS = 110
+geracoes_desde_incremento = 0
+historico_best_fitness = []
+
 random.seed(42)  # Escolha qualquer número inteiro para a seed
 # --- GERAÇÃO DAS CIDADES ---
 cities_locations = [
@@ -84,6 +87,7 @@ while running:
         continue
 
     generation = next(generation_counter)
+    geracoes_desde_incremento += 1
     screen.fill(WHITE)
 
     # --- FITNESS E ORDENAÇÃO ---
@@ -107,7 +111,7 @@ while running:
               best_fitness_values, y_label="Fitness - Distance (pxls)")
 
     draw_cities(screen, cities_locations, RED, NODE_RADIUS)
-
+    historico_best_fitness.append(best_fitness)
 
     # --- DESENHO DAS ROTAS ---
     if N_VEHICLES == 1:
@@ -131,27 +135,23 @@ while running:
     else:
         print(f"Generation {generation}: Best fitness = {round(best_fitness, 2)}")
 
-    # --- CHECAGEM DE AUTONOMIA E ESTABILIDADE ---
-# --- CHECAGEM DE AUTONOMIA E ESTABILIDADE ---
-    if last_fitness_veiculos == fitness_veiculos:
-        stable_generations += 1
-    else:
-        stable_generations = 0
-    last_fitness_veiculos = fitness_veiculos.copy()
-    if any(f > VEHICLE_AUTONOMY for f in fitness_veiculos) and stable_generations >= MAX_STABLE_GENERATIONS:
-        print(f"Necessário mais veículos! Incrementando para {N_VEHICLES + 1} e reiniciando população.")
+    # --- CHECAGEM DE AUTONOMIA: só incrementa veículos após 100 gerações ---
+    if min(historico_best_fitness[-100:]) > VEHICLE_AUTONOMY and geracoes_desde_incremento >= MAX_STABLE_GENERATIONS:
+        print(f"Maior rota ainda acima da autonomia ({VEHICLE_AUTONOMY}) após {geracoes_desde_incremento} gerações. Incrementando veículos para {N_VEHICLES + 1} e reiniciando população.")
         N_VEHICLES += 1
         VEHICLE_COLORS = generate_random_colors(N_VEHICLES)
-        population = generate_random_population_multi_vehicle(cities_locations, POPULATION_SIZE, N_VEHICLES)
+        population = [heuristic_multi_vehicle_solution(cities_locations, N_VEHICLES)]
+        population += generate_random_population_multi_vehicle(cities_locations, POPULATION_SIZE - 1, N_VEHICLES)
         best_fitness_values = []
         best_solutions = []
-        stable_generations = 0
-        last_fitness_veiculos = None
+        best_overall_fitness = None
+        
         generation_counter = itertools.count(start=1)
+        geracoes_desde_incremento = 0  # zera o contador
+        historico_best_fitness = []    # zera o histórico para o novo ciclo
         continue
-    # --- NOVA POPULAÇÃO ---
-    new_population = [population[0]]  # ELITISM
-    
+    elif min(historico_best_fitness) <= VEHICLE_AUTONOMY:
+        geracoes_desde_incremento = 0  # zera o contador se já atingiu o objetivo
 
     # --- NOVA POPULAÇÃO ---
     new_population = [population[0]]  # ELITISM
@@ -174,8 +174,8 @@ while running:
             child1 = order_crossover(parent1, parent2)
             child1 = mutate(child1, MUTATION_PROBABILITY)
             # Adicione a mutação entre veículos apenas para os últimos 10%:
-            if len(new_population) > POPULATION_SIZE * 0.5:
-                child1 = mutate_exchange_between_vehicles(child1, mutation_prob=0.05)
+            if len(new_population) > POPULATION_SIZE * 0.99:
+                child1 = mutate_exchange_between_vehicles(child1, mutation_prob=0.01)
             child1 = fix_individual(child1, cities_locations, N_VEHICLES)
             new_population.append(child1)
 

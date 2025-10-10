@@ -120,6 +120,23 @@ def order_crossover(parent1: List[Tuple[float, float]], parent2: List[Tuple[floa
 
     return child
 
+
+
+def heuristic_multi_vehicle_solution(cities, n_vehicles):
+    coords = np.array(cities)
+    kmeans = KMeans(n_clusters=n_vehicles, n_init=10, random_state=42)
+    labels = kmeans.fit_predict(coords)
+    solution = []
+    for v in range(n_vehicles):
+        cluster_cities = [cities[i] for i in range(len(cities)) if labels[i] == v]
+        if cluster_cities:
+            route = nearest_neighbour_route(cluster_cities)
+            solution.append(route)
+        else:
+            solution.append([])
+    return solution
+
+
 ### demonstration: crossover test code
 # Example usage:
 # parent1 = [(1, 1), (2, 2), (3, 3), (4,4), (5,5), (6, 6)]

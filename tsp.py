@@ -12,6 +12,7 @@ import sys
 from demo_mutation import mutate_exchange_between_vehicles
 import numpy as np
 from benchmark_att48 import *
+from sklearn.cluster import KMeans
 
 # --- CONFIGURAÇÕES ---
 WIDTH, HEIGHT = 800, 400
@@ -30,7 +31,7 @@ BLUE = (0, 0, 255)
 
 N_VEHICLES = 1
 VEHICLE_AUTONOMY = 500
-MAX_STABLE_GENERATIONS = 250
+MAX_STABLE_GENERATIONS = 150
 random.seed(42)  # Escolha qualquer número inteiro para a seed
 # --- GERAÇÃO DAS CIDADES ---
 cities_locations = [
@@ -46,8 +47,11 @@ if N_VEHICLES == 1:
     population = [nearest_neighbour_route(cities_locations)]
     population += generate_random_population(cities_locations, POPULATION_SIZE - 1)
 else:
+
     VEHICLE_COLORS = generate_random_colors(N_VEHICLES)
-    population = generate_random_population_multi_vehicle(cities_locations, POPULATION_SIZE, N_VEHICLES)
+    # Heurística + aleatórios
+    population = [heuristic_multi_vehicle_solution(cities_locations, N_VEHICLES)]
+    population += generate_random_population_multi_vehicle(cities_locations, POPULATION_SIZE - 1, N_VEHICLES)
 
 best_fitness_values = []
 best_solutions = []
@@ -170,8 +174,8 @@ while running:
             child1 = order_crossover(parent1, parent2)
             child1 = mutate(child1, MUTATION_PROBABILITY)
             # Adicione a mutação entre veículos apenas para os últimos 10%:
-            if len(new_population) > POPULATION_SIZE * 0.9:
-                child1 = mutate_exchange_between_vehicles(child1, mutation_prob=0.1)
+            if len(new_population) > POPULATION_SIZE * 0.5:
+                child1 = mutate_exchange_between_vehicles(child1, mutation_prob=0.05)
             child1 = fix_individual(child1, cities_locations, N_VEHICLES)
             new_population.append(child1)
 

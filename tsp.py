@@ -5,7 +5,7 @@ import itertools
 from genetic_algorithm import (
     mutate, order_crossover, generate_random_population, calculate_fitness, sort_population,
     default_problems, nearest_neighbour_route, generate_random_population_multi_vehicle,
-    calculate_fitness_multi_vehicle, fix_individual
+    calculate_fitness_multi_vehicle, fix_individual, calculate_fitness_multi_vehicle_balanced
 )
 from draw_functions import draw_paths, draw_plot, draw_cities, generate_random_colors
 import sys
@@ -19,7 +19,7 @@ NODE_RADIUS = 10
 FPS = 30
 PLOT_X_OFFSET = 450
 
-N_CITIES = 10
+N_CITIES = 25
 POPULATION_SIZE = 100
 MUTATION_PROBABILITY = 0.5
 
@@ -30,8 +30,7 @@ BLUE = (0, 0, 255)
 
 N_VEHICLES = 1
 VEHICLE_AUTONOMY = 500
-MAX_STABLE_GENERATIONS = 100
-
+MAX_STABLE_GENERATIONS = 250
 random.seed(42)  # Escolha qualquer número inteiro para a seed
 # --- GERAÇÃO DAS CIDADES ---
 cities_locations = [
@@ -91,9 +90,9 @@ while running:
         best_solution = population[0]
         fitness_veiculos = [round(best_fitness, 2)]
     else:
-        population_fitness = [calculate_fitness_multi_vehicle(ind) for ind in population]
+        population_fitness = [calculate_fitness_multi_vehicle_balanced(ind) for ind in population]
         population, population_fitness = sort_population(population, population_fitness)
-        best_fitness = calculate_fitness_multi_vehicle(population[0])
+        best_fitness = calculate_fitness_multi_vehicle_balanced(population[0])
         best_solution = population[0]
         fitness_veiculos = [round(calculate_fitness(route), 2) for route in best_solution]
 
@@ -170,6 +169,9 @@ while running:
             parent1, parent2 = random.choices(population, weights=probability, k=2)
             child1 = order_crossover(parent1, parent2)
             child1 = mutate(child1, MUTATION_PROBABILITY)
+            # Adicione a mutação entre veículos apenas para os últimos 10%:
+            if len(new_population) > POPULATION_SIZE * 0.9:
+                child1 = mutate_exchange_between_vehicles(child1, mutation_prob=0.1)
             child1 = fix_individual(child1, cities_locations, N_VEHICLES)
             new_population.append(child1)
 

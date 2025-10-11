@@ -20,7 +20,7 @@ NODE_RADIUS = 10
 FPS = 30
 PLOT_X_OFFSET = 450
 
-N_CITIES = 25
+N_CITIES = 3
 POPULATION_SIZE = 100
 MUTATION_PROBABILITY = 0.5
 
@@ -35,7 +35,7 @@ MAX_STABLE_GENERATIONS = 110
 geracoes_desde_incremento = 0
 historico_best_fitness = []
 
-random.seed(42)  # Escolha qualquer número inteiro para a seed
+random.seed(222)  # Escolha qualquer número inteiro para a seed
 # --- GERAÇÃO DAS CIDADES ---
 cities_locations = [
     (random.randint(NODE_RADIUS + PLOT_X_OFFSET, WIDTH - NODE_RADIUS),
@@ -117,6 +117,9 @@ while running:
     if N_VEHICLES == 1:
         if len(best_solution) >= 2:
             draw_paths(screen, best_solution, VEHICLE_COLORS[0], width=3)
+            start_city = best_solution[0]
+            pygame.draw.circle(screen, (0, 255, 0), start_city, NODE_RADIUS + 4, 2)  # círculo verde maior
+    if len(population[1]) >= 2:
         if len(population[1]) >= 2:
             draw_paths(screen, population[1], rgb_color=(128, 128, 128), width=1)
     else:
@@ -124,6 +127,8 @@ while running:
             if len(route) >= 2:
                 color = VEHICLE_COLORS[idx % len(VEHICLE_COLORS)]
                 draw_paths(screen, route, color, width=3)
+                start_city = route[0]
+                pygame.draw.circle(screen, (0, 255, 0), start_city, NODE_RADIUS + 4, 2)  # círculo verde maior
         for route in population[1]:
             if len(route) >= 2:
                 draw_paths(screen, route, rgb_color=(128, 128, 128), width=1)

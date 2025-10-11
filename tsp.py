@@ -13,8 +13,10 @@ from demo_mutation import mutate_exchange_between_vehicles
 import numpy as np
 from benchmark_att48 import *
 from sklearn.cluster import KMeans
-from cidades import df as cidades_df
+from cidades import chat_sobre_rotas, df as cidades_df
 from cidades import gerar_relatorio
+import pandas as pd
+import datetime
 
 # --- CONFIGURAÇÕES ---
 WIDTH, HEIGHT = 800, 400
@@ -22,7 +24,7 @@ NODE_RADIUS = 10
 FPS = 30
 PLOT_X_OFFSET = 450
 
-N_CITIES = 3
+N_CITIES = 12
 POPULATION_SIZE = 100
 MUTATION_PROBABILITY = 0.5
 
@@ -33,7 +35,7 @@ BLUE = (0, 0, 255)
 
 N_VEHICLES = 1
 VEHICLE_AUTONOMY = 500
-MAX_STABLE_GENERATIONS = 90
+MAX_STABLE_GENERATIONS = 125
 geracoes_desde_incremento = 0
 historico_best_fitness = []
 
@@ -77,6 +79,30 @@ show_city_names = False
 stable_generations = 0
 last_fitness_veiculos = None
 
+df = pd.DataFrame(columns=[
+    "generation",              # geração atual
+    "N_VEHICLES",              # número de veículos
+    "best_fitness",            # fitness global
+    "fitness_veiculos",        # fitness individual por veículo
+    "cities_locations",        # coordenadas
+    "city_names",              # nomes das cidades
+    "best_solution",           # rotas
+    "vehicle_autonomy",        # autonomia limite usada
+    "load_capacity",           # capacidade de carga (quando for inserida)
+    "delivery_priority",       # prioridade de entregas
+    "stable_generations",      # gerações sem melhora
+    "mutation_probability",    # taxa de mutação
+    "population_size",         # tamanho da população
+    "avg_fitness",             # média de fitness da geração
+    "timestamp",               # hora da geração
+    "execution_time",          # tempo total de execução (ms/s)
+    "heuristic_type",          # heurística usada (aleatória, kmeans etc.)
+    "selection_method",        # método de seleção
+    "crossover_method",        # tipo de crossover
+    "mutation_method",         # tipo de mutação
+    "LLM_summary"              # texto gerado pelo LLM (explicação de entregas)
+])
+
 
 while running:
     for event in pygame.event.get():
@@ -89,9 +115,10 @@ while running:
                 paused = not paused
             elif event.key == pygame.K_i:
                 show_city_names = not show_city_names
+            elif event.key == pygame.K_r:
+                gerar_relatorio(df)
             elif event.key == pygame.K_c:
-                gerar_relatorio(generation, N_VEHICLES, best_fitness, fitness_veiculos, cities_locations, city_names, best_solution)
-
+                chat_sobre_rotas(df)
     if paused:
         pygame.time.wait(100)
         continue
@@ -137,7 +164,7 @@ while running:
             draw_paths(screen, best_solution, VEHICLE_COLORS[0], width=3)
             start_city = best_solution[0]
             pygame.draw.circle(screen, (0, 255, 0), start_city, NODE_RADIUS + 4, 2)  # círculo verde maior
-    if len(population[1]) >= 2:
+
         if len(population[1]) >= 2:
             draw_paths(screen, population[1], rgb_color=(128, 128, 128), width=1)
     else:
@@ -204,6 +231,33 @@ while running:
             new_population.append(child1)
 
     population = new_population
+    # ...dentro do while running, após calcular as variáveis da geração...
+
+
+
+    df.loc[len(df)] = {
+        "generation": generation,
+        "N_VEHICLES": N_VEHICLES,
+        "best_fitness": best_fitness,
+        "fitness_veiculos": fitness_veiculos.copy(),
+        "cities_locations": cities_locations.copy(),
+        "city_names": city_names.copy(),
+        "best_solution": best_solution.copy(),
+        "vehicle_autonomy": VEHICLE_AUTONOMY,
+        "load_capacity": None,  # preencha se usar
+        "delivery_priority": None,  # preencha se usar
+        "stable_generations": stable_generations,
+        "mutation_probability": MUTATION_PROBABILITY,
+        "population_size": POPULATION_SIZE,
+        "avg_fitness": float(np.mean(population_fitness)),
+        "timestamp": datetime.datetime.now().isoformat(),
+        "execution_time": None,  # preencha se medir
+        "heuristic_type": "heurística usada",  # preencha se usar
+        "selection_method": "seleção",         # preencha se usar
+        "crossover_method": "crossover",       # preencha se usar
+        "mutation_method": "mutação",          # preencha se usar
+        "LLM_summary": None  # preencha quando gerar resumo pela LLM
+    }
 
     pygame.display.flip()
     clock.tick(FPS)

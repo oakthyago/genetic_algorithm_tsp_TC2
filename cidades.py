@@ -3,6 +3,87 @@ from io import StringIO
 import openai
 from openai_key import key
 
+def chat_sobre_rotas(df):
+    print("\nDigite sua pergunta sobre as rotas e entregas (ou 'sair' para voltar):")
+    while True:
+        pergunta = input("Pergunta: ")
+        if pergunta.lower() in ["sair", "exit", "quit"]:
+            break
+        # Gera um contexto textual com as últimas 10 gerações
+        contexto = df.tail(10).to_string()
+        prompt = (
+            f"Você é um assistente de logística. Use os dados abaixo para responder à pergunta do usuário.\n"
+            f"Dados das últimas gerações:\n{contexto}\n"
+            f"Pergunta: {pergunta}\n"
+            f"Responda de forma clara, objetiva e baseada nos dados apresentados."
+        )
+        openai.api_key = key
+        try:
+            response = openai.chat.completions.create(
+                model="gpt-4o",
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=400
+            )
+            resposta = response.choices[0].message.content
+            print("\nResposta do sistema:", resposta, "\n")
+        except Exception as e:
+            print("Erro ao consultar IA:", e)
+
+
+
+def gerar_relatorio(df):
+    print("\n--- RELATÓRIO AUTOMÁTICO ---")
+    if len(df) == 0:
+        print("Nenhum dado disponível.")
+        return
+
+    ultima = df.iloc[-1]
+    print(f"Geração atual: {ultima['generation']}")
+    print(f"Número de veículos: {ultima['N_VEHICLES']}")
+    print(f"Melhor fitness global: {round(ultima['best_fitness'], 2)}")
+    if ultima['N_VEHICLES'] > 1:
+        print(f"Fitness individual de cada veículo: {ultima['fitness_veiculos']}")
+    print(f"Número de cidades: {len(ultima['cities_locations'])}")
+    print("Cidades e coordenadas:")
+    for idx, (coord, nome) in enumerate(zip(ultima['cities_locations'], ultima['city_names'])):
+        print(f"  {idx+1}: {nome} - {coord}")
+    print("Rotas dos veículos:")
+    if ultima['N_VEHICLES'] == 1:
+        print(f"  Veículo único: {ultima['best_solution']}")
+    else:
+        for idx, route in enumerate(ultima['best_solution']):
+            print(f"  Veículo {idx+1}: {route}")
+    print("--- Fim do relatório ---\n")
+
+    # Exemplo de relatório de eficiência
+    print(f"Média de fitness das últimas 10 gerações: {df['best_fitness'].tail(10).mean():.2f}")
+    print(f"Total de execuções registradas: {len(df)}")
+    print("--- Fim do resumo estatístico ---\n")
+
+    # Exemplo: gerar explicação para motoristas usando IA (opcional)
+    try:
+        import openai
+        from openai_key import key
+        prompt = (
+            f"Explique para os motoristas como será feita a entrega considerando:\n"
+            f"- Número de veículos: {ultima['N_VEHICLES']}\n"
+            f"- Melhor rota: {ultima['best_solution']}\n"
+            f"- Cidades: {', '.join(ultima['city_names'])}\n"
+            f"- Fitness individual: {ultima['fitness_veiculos']}\n"
+            f"Seja claro, objetivo e amigável."
+        )
+        openai.api_key = key
+        response = openai.chat.completions.create(
+            model="gpt-4o", #model="gpt-3.5-turbo"
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=800
+        )
+        explicacao = response.choices[0].message.content
+        print("\n--- Orientação para os motoristas ---")
+        print(explicacao)
+        print("--- Fim da orientação ---\n")
+    except Exception as e:
+        print("Erro ao gerar explicação com IA:", e)
 
 # Dados em formato de texto (copiados da sua mensagem)
 dados = """ID	Cidade	População
@@ -205,48 +286,3 @@ print(df.dtypes)
 
 
 
-import openai
-
-def gerar_relatorio(generation, N_VEHICLES, best_fitness, fitness_veiculos, cities_locations, city_names, best_solution):
-    print("\n--- RELATÓRIO AUTOMÁTICO ---")
-    print(f"Geração atual: {generation}")
-    print(f"Número de veículos: {N_VEHICLES}")
-    print(f"Melhor fitness global: {round(best_fitness, 2)}")
-    if N_VEHICLES > 1:
-        print(f"Fitness individual de cada veículo: {fitness_veiculos}")
-    print(f"Número de cidades: {len(cities_locations)}")
-    print("Cidades e coordenadas:")
-    for idx, (coord, nome) in enumerate(zip(cities_locations, city_names)):
-        print(f"  {idx+1}: {nome} - {coord}")
-    print("Rotas dos veículos:")
-    if N_VEHICLES == 1:
-        print(f"  Veículo único: {best_solution}")
-    else:
-        for idx, route in enumerate(best_solution):
-            print(f"  Veículo {idx+1}: {route}")
-    print("--- Fim do relatório ---\n")
-
-    # --- GERA EXPLICAÇÃO PARA OS MOTORISTAS USANDO IA ---
-    prompt = (
-        f"Explique para os motoristas como será feita a entrega considerando:\n"
-        f"- Número de veículos: {N_VEHICLES}\n"
-        f"- Melhor rota: {best_solution}\n"
-        f"- Cidades: {', '.join(city_names)}\n"
-        f"- Fitness individual: {fitness_veiculos}\n"
-        f"Seja claro, objetivo e amigável."
-    )
-
-    # Substitua 'YOUR_OPENAI_API_KEY' pela sua chave da OpenAI
-    openai.api_key = key
-    try:
-        response = openai.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[{"role": "user", "content": prompt}],
-            max_tokens=200
-        )
-        explicacao = response.choices[0].message.content
-        print("\n--- Orientação para os motoristas ---")
-        print(explicacao)
-        print("--- Fim da orientação ---\n")
-    except Exception as e:
-        print("Erro ao gerar explicação com IA:", e)

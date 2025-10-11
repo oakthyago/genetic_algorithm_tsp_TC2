@@ -1,5 +1,8 @@
 import pandas as pd
 from io import StringIO
+import openai
+from openai_key import key
+
 
 # Dados em formato de texto (copiados da sua mensagem)
 dados = """ID	Cidade	População
@@ -193,8 +196,57 @@ dados = """ID	Cidade	População
 # Criação do DataFrame
 df = pd.read_csv(StringIO(dados), sep='\t')
 
+
 # Exibir as 10 primeiras linhas
 print(df.head(10))
 
 # Verificar tipo das colunas
 print(df.dtypes)
+
+
+
+import openai
+
+def gerar_relatorio(generation, N_VEHICLES, best_fitness, fitness_veiculos, cities_locations, city_names, best_solution):
+    print("\n--- RELATÓRIO AUTOMÁTICO ---")
+    print(f"Geração atual: {generation}")
+    print(f"Número de veículos: {N_VEHICLES}")
+    print(f"Melhor fitness global: {round(best_fitness, 2)}")
+    if N_VEHICLES > 1:
+        print(f"Fitness individual de cada veículo: {fitness_veiculos}")
+    print(f"Número de cidades: {len(cities_locations)}")
+    print("Cidades e coordenadas:")
+    for idx, (coord, nome) in enumerate(zip(cities_locations, city_names)):
+        print(f"  {idx+1}: {nome} - {coord}")
+    print("Rotas dos veículos:")
+    if N_VEHICLES == 1:
+        print(f"  Veículo único: {best_solution}")
+    else:
+        for idx, route in enumerate(best_solution):
+            print(f"  Veículo {idx+1}: {route}")
+    print("--- Fim do relatório ---\n")
+
+    # --- GERA EXPLICAÇÃO PARA OS MOTORISTAS USANDO IA ---
+    prompt = (
+        f"Explique para os motoristas como será feita a entrega considerando:\n"
+        f"- Número de veículos: {N_VEHICLES}\n"
+        f"- Melhor rota: {best_solution}\n"
+        f"- Cidades: {', '.join(city_names)}\n"
+        f"- Fitness individual: {fitness_veiculos}\n"
+        f"Seja claro, objetivo e amigável."
+    )
+
+    # Substitua 'YOUR_OPENAI_API_KEY' pela sua chave da OpenAI
+    openai.api_key = key
+    try:
+        response = openai.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=200
+        )
+        explicacao = response.choices[0].message.content
+        print("\n--- Orientação para os motoristas ---")
+        print(explicacao)
+        print("--- Fim da orientação ---\n")
+    except Exception as e:
+        print("Erro ao gerar explicação com IA:", e)

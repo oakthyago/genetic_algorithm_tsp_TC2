@@ -14,6 +14,7 @@ import numpy as np
 from benchmark_att48 import *
 from sklearn.cluster import KMeans
 from cidades import df as cidades_df
+from cidades import gerar_relatorio
 
 # --- CONFIGURAÇÕES ---
 WIDTH, HEIGHT = 800, 400
@@ -88,6 +89,8 @@ while running:
                 paused = not paused
             elif event.key == pygame.K_i:
                 show_city_names = not show_city_names
+            elif event.key == pygame.K_c:
+                gerar_relatorio(generation, N_VEHICLES, best_fitness, fitness_veiculos, cities_locations, city_names, best_solution)
 
     if paused:
         pygame.time.wait(100)

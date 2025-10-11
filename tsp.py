@@ -13,6 +13,7 @@ from demo_mutation import mutate_exchange_between_vehicles
 import numpy as np
 from benchmark_att48 import *
 from sklearn.cluster import KMeans
+from cidades import df as cidades_df
 
 # --- CONFIGURAÇÕES ---
 WIDTH, HEIGHT = 800, 400
@@ -31,7 +32,7 @@ BLUE = (0, 0, 255)
 
 N_VEHICLES = 1
 VEHICLE_AUTONOMY = 500
-MAX_STABLE_GENERATIONS = 110
+MAX_STABLE_GENERATIONS = 90
 geracoes_desde_incremento = 0
 historico_best_fitness = []
 
@@ -42,6 +43,8 @@ cities_locations = [
      random.randint(NODE_RADIUS, HEIGHT - NODE_RADIUS))
     for _ in range(N_CITIES)
 ]
+city_names = list(cidades_df['Cidade'])
+
 
 # --- INICIALIZAÇÃO DA POPULAÇÃO E CORES ---
 if N_VEHICLES == 1:
@@ -69,8 +72,10 @@ generation_counter = itertools.count(start=1)
 paused = False
 running = True
 
+show_city_names = False
 stable_generations = 0
 last_fitness_veiculos = None
+
 
 while running:
     for event in pygame.event.get():
@@ -81,6 +86,8 @@ while running:
                 running = False
             elif event.key == pygame.K_p:
                 paused = not paused
+            elif event.key == pygame.K_i:
+                show_city_names = not show_city_names
 
     if paused:
         pygame.time.wait(100)
@@ -107,11 +114,19 @@ while running:
     best_fitness_values.append(best_fitness)
     best_solutions.append(best_solution)
 
+    # --- DESENHO DOS GRÁFICOS ---
+
     draw_plot(screen, list(range(len(best_fitness_values))),
               best_fitness_values, y_label="Fitness - Distance (pxls)")
 
     draw_cities(screen, cities_locations, RED, NODE_RADIUS)
     historico_best_fitness.append(best_fitness)
+
+    if show_city_names:
+        font = pygame.font.SysFont(None, 20)
+        for idx, (x, y) in enumerate(cities_locations):
+            text = font.render(city_names[idx], True, (0, 0, 0))
+            screen.blit(text, (x + 10, y - 10))
 
     # --- DESENHO DAS ROTAS ---
     if N_VEHICLES == 1:
@@ -140,7 +155,7 @@ while running:
     else:
         print(f"Generation {generation}: Best fitness = {round(best_fitness, 2)}")
 
-    # --- CHECAGEM DE AUTONOMIA: só incrementa veículos após 100 gerações ---
+    # --- CHECAGEM DE AUTONOMIA: só incrementa veículos após MAX_STABLE_GENERATIONS ---
     if min(historico_best_fitness[-100:]) > VEHICLE_AUTONOMY and geracoes_desde_incremento >= MAX_STABLE_GENERATIONS:
         print(f"Maior rota ainda acima da autonomia ({VEHICLE_AUTONOMY}) após {geracoes_desde_incremento} gerações. Incrementando veículos para {N_VEHICLES + 1} e reiniciando população.")
         N_VEHICLES += 1
@@ -154,10 +169,11 @@ while running:
         generation_counter = itertools.count(start=1)
         geracoes_desde_incremento = 0  # zera o contador
         historico_best_fitness = []    # zera o histórico para o novo ciclo
+        paused = True 
         continue
     elif min(historico_best_fitness) <= VEHICLE_AUTONOMY:
         geracoes_desde_incremento = 0  # zera o contador se já atingiu o objetivo
-
+        
     # --- NOVA POPULAÇÃO ---
     new_population = [population[0]]  # ELITISM
 

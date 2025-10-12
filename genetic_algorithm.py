@@ -6,6 +6,7 @@ import copy
 from typing import List, Tuple
 import numpy as np
 from sklearn.cluster import KMeans
+import numbers
 
 default_problems = {
 5: [(733, 251), (706, 87), (546, 97), (562, 49), (576, 253)],
@@ -15,6 +16,23 @@ default_problems = {
 }
 
 
+def _route_to_coords_for_fitness(route, cities_locations=None):
+    """
+    Converte uma rota (índices ou coordenadas) para uma lista de coordenadas (x, y).
+    Se houver inteiros, exige cities_locations.
+    """
+    if not route:
+        return []
+    coords = []
+    for p in route:
+        if isinstance(p, int):
+            if cities_locations is None:
+                raise ValueError("cities_locations must be provided when route contains indices")
+            coords.append(cities_locations[p])
+        else:
+            x, y = p  # tuple/list
+            coords.append((float(x), float(y)))
+    return coords
 
 def generate_random_population(cities_location: List[Tuple[float, float]], population_size: int) -> List[List[Tuple[float, float]]]:
     """
@@ -72,27 +90,37 @@ def calculate_fitness_multi_vehicle(individual: List[List[Tuple[float, float]]])
     """
     return sum(calculate_fitness(route) for route in individual)
 
-def calculate_fitness_multi_vehicle_balanced(individual):
-    # O fitness é a maior distância entre as rotas dos veículos
-    return max(calculate_fitness(route) for route in individual)
-
-def calculate_fitness(path: List[Tuple[float, float]]) -> float:
+def calculate_fitness(route, cities_locations=None):
     """
-    Calculate the fitness of a given path based on the total Euclidean distance.
-
-    Parameters:
-    - path (List[Tuple[float, float]]): A list of tuples representing the path,
-      where each tuple contains the coordinates of a point.
-
-    Returns:
-    float: The total Euclidean distance of the path.
+    Aceita rota como lista de índices (0..n-1) ou de coordenadas [(x,y),...].
+    Retorna a distância do ciclo fechando no início.
     """
-    distance = 0
+    path = _route_to_coords_for_fitness(route, cities_locations)
     n = len(path)
+    if n < 2:
+        return 0.0
+    distance = 0.0
     for i in range(n):
-        distance += calculate_distance(path[i], path[(i + 1) % n])
-
+        a = path[i]
+        b = path[(i + 1) % n]
+        distance += calculate_distance(a, b)
     return distance
+
+def calculate_fitness_multi_vehicle_balanced(individual, cities_locations):
+    """
+    Fitness de indivíduo multi-veículos = max distância entre as rotas (balanceamento).
+    Suporta rotas em índices ou coordenadas.
+    """
+    if not individual:
+        return 0.0
+    values = []
+    for route in individual:
+        if not route:
+            values.append(0.0)
+        else:
+            values.append(calculate_fitness(route, cities_locations))
+    return max(values) if values else 0.0
+
 
 
 def order_crossover(parent1: List[Tuple[float, float]], parent2: List[Tuple[float, float]]) -> List[Tuple[float, float]]:
@@ -307,13 +335,29 @@ def _coord_to_index_map(cities_locations):
     return {tuple(c): i for i, c in enumerate(cities_locations)}
 
 def to_index_route(route, cities_locations):
+    """
+    Aceita rota como lista de índices ou lista de coordenadas e devolve lista de índices.
+    """
     if not route:
         return []
     if isinstance(route[0], int):
-        return route[:]
+        return list(route)
+    # rota em coordenadas
     m = _coord_to_index_map(cities_locations)
-    return [m[tuple(p)] for p in route]
-
+    idxs = []
+    for p in route:
+        # Se p já é int, só adiciona
+        if isinstance(p, int):
+            idxs.append(p)
+            continue
+        t = tuple(p)
+        i = m.get(t)
+        if i is None:
+            i = m.get((int(p[0]), int(p[1])))
+        if i is None:
+            i = _find_nearest_index((float(p[0]), float(p[1])), cities_locations)
+        idxs.append(i)
+    return idxs
 def to_coord_route(route_idx, cities_locations):
     return [cities_locations[i] for i in route_idx]
 
@@ -364,12 +408,88 @@ def normalize_individual_coords(individual, start_city_indices, cities_locations
     fixed = normalize_individual(individual, start_city_indices, cities_locations)
     return [route_to_coords(r, cities_locations) for r in fixed]
 
+
+
+def repair_unique_clients(individual, start_city_indices, n_cities):
+    """
+    Remove cidades duplicadas entre rotas e garante que cada cliente apareça em uma única rota.
+    Mantém depósitos apenas na posição 0 de sua respectiva rota.
+    individual: List[List[int]] (rotas em índices)
+    """
+    depots = set(start_city_indices)
+    seen = set()
+    fixed = []
+
+    # 1) limpa cada rota: mantém depot no início e remove duplicatas/depósitos indevidos
+    for ridx, route in enumerate(individual):
+        depot = start_city_indices[ridx]
+        cleaned = [depot]
+        for c in route:
+            if not isinstance(c, int):
+                continue  # ignorar qualquer coord perdida (rotas devem estar em índices)
+            if c in depots:
+                continue  # depósitos só ficam na cabeça da própria rota
+            if c not in seen:
+                cleaned.append(c)
+                seen.add(c)
+        fixed.append(cleaned)
+
+    # 2) insere clientes faltantes (se algum sumiu) na rota mais curta
+    all_clients = set(range(n_cities)) - depots
+    missing = list(all_clients - seen)
+    for c in missing:
+        target = min(range(len(fixed)), key=lambda i: len(fixed[i]))
+        fixed[target].append(c)
+
+    return fixed
+
+
 def route_to_coords(route, cities_locations):
-    """Converte rota (índices ou coords) para sempre retornar coords."""
+    """
+    Converte rota para coordenadas [(x,y), ...], aceitando:
+    - lista de índices [0,2,5,...]
+    - lista de coordenadas [(x,y), ...]
+    - lista mista (índices e coords)
+    """
     if not route:
         return []
-    if isinstance(route[0], int):
-        return [cities_locations[i] for i in route]
-    # já é lista de coords; força tuplas de int para o pygame
-    return [tuple(int(x) for x in r) for r in route]
+    coords = []
+    for p in route:
+        if isinstance(p, numbers.Integral):
+            idx = int(p)
+            coords.append(tuple(map(int, cities_locations[idx])))
+        elif isinstance(p, (list, tuple)) and len(p) == 2:
+            x, y = p
+            coords.append((int(x), int(y)))
+        else:
+            raise TypeError(f"Invalid route point (expected index or (x,y)): {p!r}")
+    return coords
 
+
+def remove_extra_depots(individual, start_city_indices):
+    """
+    Para cada rota, remove todas as cidades fixas exceto a do início.
+    individual: lista de rotas (cada rota é lista de índices)
+    start_city_indices: lista de índices das cidades fixas (depósitos)
+    """
+    for idx, route in enumerate(individual):
+        depot = start_city_indices[idx]
+        # Mantém o depósito só no início, remove se aparecer em outras posições
+        individual[idx] = [depot] + [c for i, c in enumerate(route) if c != depot or i == 0]
+    return individual
+
+# ...existing code...
+def crossover_multi(parent1, parent2):
+    """
+    Aplica order_crossover rota-a-rota, preservando a estrutura multi-veículos.
+    parent1/parent2: List[List[int]] (rotas por veículo, em índices)
+    """
+    size = min(len(parent1), len(parent2))
+    child = []
+    for i in range(size):
+        child.append(order_crossover(parent1[i], parent2[i]))
+    # se tiverem comprimentos diferentes, completa com as rotas do parent1
+    for i in range(size, len(parent1)):
+        child.append(list(parent1[i]))
+    return child
+# ...existing code...

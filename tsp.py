@@ -7,6 +7,7 @@ from genetic_algorithm import (
     default_problems, nearest_neighbour_route, generate_random_population_multi_vehicle,
     calculate_fitness_multi_vehicle, fix_individual, calculate_fitness_multi_vehicle_balanced,heuristic_multi_vehicle_solution
 )
+from genetic_algorithm import normalize_individual, mutate_individual_preserving_depots, normalize_individual_coords, route_to_coords
 from draw_functions import draw_paths, draw_plot, draw_cities, generate_random_colors
 import sys
 from demo_mutation import mutate_exchange_between_vehicles
@@ -35,11 +36,14 @@ BLUE = (0, 0, 255)
 
 N_VEHICLES = 1
 VEHICLE_AUTONOMY = 500
-MAX_STABLE_GENERATIONS = 125
+MAX_STABLE_GENERATIONS = 200
 geracoes_desde_incremento = 0
 historico_best_fitness = []
 
-random.seed(222)  # Escolha qualquer número inteiro para a seed
+# âncoras iniciais (primeiras N cidades como depósitos)
+start_city_indices = list(range(max(1, N_VEHICLES)))
+
+random.seed(42)  # Escolha qualquer número inteiro para a seed
 # --- GERAÇÃO DAS CIDADES ---
 cities_locations = [
     (random.randint(NODE_RADIUS + PLOT_X_OFFSET, WIDTH - NODE_RADIUS),
@@ -61,6 +65,8 @@ else:
     # Heurística + aleatórios
     population = [heuristic_multi_vehicle_solution(cities_locations, N_VEHICLES)]
     population += generate_random_population_multi_vehicle(cities_locations, POPULATION_SIZE - 1, N_VEHICLES)
+        # novo: garante depósito fixo na posição 0 de cada rota
+    population = [normalize_individual_coords(ind, start_city_indices, cities_locations) for ind in population]
 
 best_fitness_values = []
 best_solutions = []
@@ -158,25 +164,28 @@ while running:
             text = font.render(city_names[idx], True, (0, 0, 0))
             screen.blit(text, (x + 10, y - 10))
 
+
     # --- DESENHO DAS ROTAS ---
     if N_VEHICLES == 1:
         if len(best_solution) >= 2:
-            draw_paths(screen, best_solution, VEHICLE_COLORS[0], width=3)
-            start_city = best_solution[0]
-            pygame.draw.circle(screen, (0, 255, 0), start_city, NODE_RADIUS + 4, 2)  # círculo verde maior
-
+            route_coords = route_to_coords(best_solution, cities_locations)
+            draw_paths(screen, route_coords, VEHICLE_COLORS[0], width=3)
+            start_city = route_coords[0]
+            pygame.draw.circle(screen, (0, 255, 0), start_city, NODE_RADIUS + 4, 2)
         if len(population[1]) >= 2:
-            draw_paths(screen, population[1], rgb_color=(128, 128, 128), width=1)
+            pop1_coords = route_to_coords(population[1], cities_locations)
+            draw_paths(screen, pop1_coords, rgb_color=(128, 128, 128), width=1)
     else:
         for idx, route in enumerate(best_solution):
             if len(route) >= 2:
+                route_coords = route_to_coords(route, cities_locations)
                 color = VEHICLE_COLORS[idx % len(VEHICLE_COLORS)]
-                draw_paths(screen, route, color, width=3)
-                start_city = route[0]
-                pygame.draw.circle(screen, (0, 255, 0), start_city, NODE_RADIUS + 4, 2)  # círculo verde maior
+                draw_paths(screen, route_coords, color, width=3)
+                pygame.draw.circle(screen, (0, 255, 0), route_coords[0], NODE_RADIUS + 4, 2)
         for route in population[1]:
             if len(route) >= 2:
-                draw_paths(screen, route, rgb_color=(128, 128, 128), width=1)
+                pop_coords = route_to_coords(route, cities_locations)
+                draw_paths(screen, pop_coords, rgb_color=(128, 128, 128), width=1)
 
 
     
@@ -190,12 +199,14 @@ while running:
         print(f"Maior rota ainda acima da autonomia ({VEHICLE_AUTONOMY}) após {geracoes_desde_incremento} gerações. Incrementando veículos para {N_VEHICLES + 1} e reiniciando população.")
         N_VEHICLES += 1
         VEHICLE_COLORS = generate_random_colors(N_VEHICLES)
+        start_city_indices = list(range(N_VEHICLES))
         population = [heuristic_multi_vehicle_solution(cities_locations, N_VEHICLES)]
         population += generate_random_population_multi_vehicle(cities_locations, POPULATION_SIZE - 1, N_VEHICLES)
+        population = [normalize_individual_coords(ind, start_city_indices, cities_locations) for ind in population]
+       
         best_fitness_values = []
         best_solutions = []
         best_overall_fitness = None
-        
         generation_counter = itertools.count(start=1)
         geracoes_desde_incremento = 0  # zera o contador
         historico_best_fitness = []    # zera o histórico para o novo ciclo
@@ -223,11 +234,13 @@ while running:
                 probability = np.nan_to_num(probability, nan=0.0, posinf=0.0, neginf=0.0)
             parent1, parent2 = random.choices(population, weights=probability, k=2)
             child1 = order_crossover(parent1, parent2)
-            child1 = mutate(child1, MUTATION_PROBABILITY)
+
+            child1 = mutate_individual_preserving_depots(child1, MUTATION_PROBABILITY)
             # Adicione a mutação entre veículos apenas para os últimos 10%:
             if len(new_population) > POPULATION_SIZE * 0.99:
                 child1 = mutate_exchange_between_vehicles(child1, mutation_prob=0.01)
             child1 = fix_individual(child1, cities_locations, N_VEHICLES)
+            child1 = normalize_individual_coords(child1, start_city_indices, cities_locations)
             new_population.append(child1)
 
     population = new_population

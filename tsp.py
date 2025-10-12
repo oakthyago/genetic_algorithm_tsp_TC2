@@ -21,30 +21,28 @@ import datetime
 import numbers
 
 # --- CONFIGURAÇÕES ---
-WIDTH, HEIGHT = 800, 400
+WIDTH, HEIGHT = 1200, 600
 NODE_RADIUS = 10
 FPS = 30
 PLOT_X_OFFSET = 450
 
-N_CITIES = 10
+N_CITIES = 12
 POPULATION_SIZE = 100
 MUTATION_PROBABILITY = 0.5
 
 WHITE = (255, 255, 255)
-BLACK = (0, 0, 0)
+BLACK = (125, 125, 125)
 RED = (255, 0, 0)
 BLUE = (0, 0, 255)
 
 N_VEHICLES = 1
-VEHICLE_AUTONOMY = 500
-MAX_STABLE_GENERATIONS = 200
+VEHICLE_AUTONOMY = 750
+MAX_STABLE_GENERATIONS = 100
 geracoes_desde_incremento = 0
 historico_best_fitness = []
 
-# âncoras iniciais (primeiras N cidades como depósitos)
-start_city_indices = list(range(max(1, N_VEHICLES)))
 
-random.seed(42)  # Escolha qualquer número inteiro para a seed
+random.seed(101)  # Escolha qualquer número inteiro para a seed
 # --- GERAÇÃO DAS CIDADES ---
 cities_locations = [
     (random.randint(NODE_RADIUS + PLOT_X_OFFSET, WIDTH - NODE_RADIUS),
@@ -53,6 +51,7 @@ cities_locations = [
 ]
 city_names = list(cidades_df['Cidade'])
 
+start_city_indices = random.sample(range(len(cities_locations)), k=max(1, N_VEHICLES))
 
 # --- INICIALIZAÇÃO DA POPULAÇÃO E CORES ---
 if N_VEHICLES == 1:
@@ -79,6 +78,7 @@ screen = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("TSP Solver using Pygame")
 clock = pygame.time.Clock()
 generation_counter = itertools.count(start=1)
+overlay_font = pygame.font.SysFont(None, 24)
 
 paused = False
 running = True
@@ -133,7 +133,7 @@ while running:
 
     generation = next(generation_counter)
     geracoes_desde_incremento += 1
-    screen.fill(WHITE)
+    screen.fill((0, 0, 0))
 
     # --- FITNESS E ORDENAÇÃO ---
     if N_VEHICLES == 1:
@@ -160,10 +160,14 @@ while running:
     draw_cities(screen, cities_locations, RED, NODE_RADIUS)
     historico_best_fitness.append(best_fitness)
 
+        # Overlay: número de veículos (no início da área do mapa)
+    vehicles_text = overlay_font.render(f"Veículos e Rotas: {N_VEHICLES}", True, BLACK)
+    screen.blit(vehicles_text, (PLOT_X_OFFSET + 10, 10))
+
     if show_city_names:
         font = pygame.font.SysFont(None, 20)
         for idx, (x, y) in enumerate(cities_locations):
-            text = font.render(city_names[idx], True, (0, 0, 0))
+            text = font.render(city_names[idx], True, (125, 125, 125))
             screen.blit(text, (x + 10, y - 10))
 
 
@@ -202,7 +206,13 @@ while running:
         N_VEHICLES += 1
         VEHICLE_COLORS = generate_random_colors(N_VEHICLES)
 
-        start_city_indices = list(range(N_VEHICLES))
+        available = list(set(range(len(cities_locations))) - set(start_city_indices))
+        if available:
+            start_city_indices.append(random.choice(available))
+        else:
+             # fallback (todas as cidades já usadas): reamostra tudo, ainda aleatório
+            start_city_indices = random.sample(range(len(cities_locations)), k=N_VEHICLES)
+
         population = [heuristic_multi_vehicle_solution(cities_locations, N_VEHICLES)]
         population += generate_random_population_multi_vehicle(cities_locations, POPULATION_SIZE - 1, N_VEHICLES)
         population = [normalize_individual(ind, start_city_indices, cities_locations) for ind in population]
@@ -215,7 +225,7 @@ while running:
         generation_counter = itertools.count(start=1)
         geracoes_desde_incremento = 0  # zera o contador
         historico_best_fitness = []    # zera o histórico para o novo ciclo
-        paused = True 
+        #paused = True 
         continue
     elif min(historico_best_fitness) <= VEHICLE_AUTONOMY:
         geracoes_desde_incremento = 0  # zera o contador se já atingiu o objetivo

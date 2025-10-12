@@ -31,60 +31,195 @@ def chat_sobre_rotas(df):
 
 
 
-def gerar_relatorio(df):
+
+# ...existing code...
+import json
+import math
+
+# Quanto 1 unidade do seu plano equivale em quilômetros (ajuste se necessário)
+SCALE_KM_PER_UNIT = 1.0
+
+try:
+    import openai
+    from openai_key import key
+except Exception:
+    openai = None
+# ...existing code...
+
+def gerar_relatorio(df, close_route=True):
+    """
+    Gera relatório claro e fiel:
+    - Veículo X começa em <cidade> e termina em <cidade>
+    - Percurso: CidadeA -> CidadeB -> ...
+    - Trechos com quilometragem por perna e total por veículo
+    - close_route=True fecha o ciclo (volta ao início)
+    Ao final, gera um informativo via LLM com dados estruturados e baixa temperatura.
+    """
     print("\n--- RELATÓRIO AUTOMÁTICO ---")
     if len(df) == 0:
         print("Nenhum dado disponível.")
         return
 
     ultima = df.iloc[-1]
-    print(f"Geração atual: {ultima['generation']}")
-    print(f"Número de veículos: {ultima['N_VEHICLES']}")
-    print(f"Melhor fitness global: {round(ultima['best_fitness'], 2)}")
-    if ultima['N_VEHICLES'] > 1:
-        print(f"Fitness individual de cada veículo: {ultima['fitness_veiculos']}")
-    print(f"Número de cidades: {len(ultima['cities_locations'])}")
-    print("Cidades e coordenadas:")
-    for idx, (coord, nome) in enumerate(zip(ultima['cities_locations'], ultima['city_names'])):
-        print(f"  {idx+1}: {nome} - {coord}")
-    print("Rotas dos veículos:")
-    if ultima['N_VEHICLES'] == 1:
-        print(f"  Veículo único: {ultima['best_solution']}")
-    else:
-        for idx, route in enumerate(ultima['best_solution']):
-            print(f"  Veículo {idx+1}: {route}")
+    nveh = int(ultima["N_VEHICLES"])
+    city_names = list(ultima["city_names"])
+    cities_locations = [tuple(c) for c in ultima["cities_locations"]]
+    best_solution = ultima["best_solution"]
+
+    # Utilitários locais
+    def to_index_route(route):
+        """Aceita rota como lista de índices ou de coordenadas; retorna sempre índices."""
+        if not route:
+            return []
+        if isinstance(route[0], int):
+            return list(route)
+        # rota em coords -> índices (robusto a int/float)
+        m = {}
+        for i, c in enumerate(cities_locations):
+            m[tuple(c)] = i
+            m[(int(c[0]), int(c[1]))] = i
+        idxs = []
+        for p in route:
+            t = tuple(p)
+            i = m.get(t) or m.get((int(p[0]), int(p[1])))
+            if i is None:
+                # fallback: índice mais próximo (se coords não baterem 100%)
+                px, py = float(p[0]), float(p[1])
+                best_i, best_d = None, float("inf")
+                for j, (x, y) in enumerate(cities_locations):
+                    d = (x - px) ** 2 + (y - py) ** 2
+                    if d < best_d:
+                        best_i, best_d = j, d
+                i = best_i
+            idxs.append(i)
+        return idxs
+
+    def dist_km(a_idx, b_idx):
+        ax, ay = cities_locations[a_idx]
+        bx, by = cities_locations[b_idx]
+        return math.hypot(bx - ax, by - ay) * SCALE_KM_PER_UNIT
+
+    def km_fmt(v): return f"{v:.1f} km"
+
+    # Normaliza best_solution para lista de rotas
+    routes = [best_solution] if nveh <= 1 else list(best_solution)
+
+    print(f"Geração: {int(ultima['generation'])}")
+    print(f"Veículos: {nveh}")
+    print(f"Cidades na malha: {len(cities_locations)}")
+    print("\nRotas detalhadas por veículo:")
+
+    total_geral = 0.0
+    all_stats = []  # para IA
+
+    for vidx, route in enumerate(routes, start=1):
+        route_idx = to_index_route(route)
+        if len(route_idx) < 1:
+            print(f"\n- Veículo {vidx}: rota vazia.")
+            all_stats.append({"vehicle": vidx, "legs": [], "total_km": 0.0})
+            continue
+
+        seq = list(route_idx)
+        if close_route and len(seq) >= 2:
+            seq_pairs = [(seq[i], seq[i+1]) for i in range(len(seq)-1)] + [(seq[-1], seq[0])]
+        else:
+            seq_pairs = [(seq[i], seq[i+1]) for i in range(len(seq)-1)]
+
+        legs_km = [dist_km(a, b) for (a, b) in seq_pairs]
+        total_km = sum(legs_km)
+        total_geral += total_km
+
+        path_names = [city_names[i] for i in seq]
+        if close_route and len(seq) >= 2:
+            path_line = " -> ".join(path_names + [path_names[0]])
+            start_name, end_name = path_names[0], path_names[0]
+        else:
+            path_line = " -> ".join(path_names)
+            start_name, end_name = path_names[0], path_names[-1]
+
+        print(f"\n- Veículo {vidx}:")
+        print(f"  Começa em {start_name} e termina em {end_name}.")
+        print(f"  Percurso: {path_line}")
+
+        if seq_pairs:
+            print("  Trechos:")
+            for (a, b), d in zip(seq_pairs, legs_km):
+                print(f"    {city_names[a]} -> {city_names[b]}: {km_fmt(d)}")
+
+            km_sequence = ", depois ".join(km_fmt(k) for k in legs_km)
+            print(f"  Quilometragem por trecho (na ordem): {km_sequence}")
+
+        print(f"  Total da rota: {km_fmt(total_km)}")
+
+        all_stats.append({
+            "vehicle": vidx,
+            "legs": [{"from": city_names[a], "to": city_names[b], "km": round(d, 1)}
+                     for (a, b), d in zip(seq_pairs, legs_km)],
+            "total_km": round(total_km, 1),
+            "start": start_name,
+            "end": end_name,
+            "path": path_names + ([path_names[0]] if close_route and len(seq) >= 2 else [])
+        })
+
+    print(f"\nTotal geral planejado: {km_fmt(total_geral)}")
     print("--- Fim do relatório ---\n")
 
-    # Exemplo de relatório de eficiência
-    print(f"Média de fitness das últimas 10 gerações: {df['best_fitness'].tail(10).mean():.2f}")
-    print(f"Total de execuções registradas: {len(df)}")
-    print("--- Fim do resumo estatístico ---\n")
+    # --- Informativo via LLM (opcional, com dados estruturados e baixa temperatura) ---
+    if openai is None:
+        print("OpenAI não configurado; informativo via IA não gerado.")
+        return
 
-    # Exemplo: gerar explicação para motoristas usando IA (opcional)
     try:
-        import openai
-        from openai_key import key
-        prompt = (
-            f"Explique para os motoristas como será feita a entrega considerando nunca usar número mas os nomes das cidades:\n"
-            f"- Número de veículos e a kilometragem  que cada um andara na rota(fitness): {ultima['N_VEHICLES']}\n"
-            f"- Melhor rota, resaltado veiculo x de cidade y a cidade z ...: {ultima['best_solution']}\n"
-            f"- Cidades usar sempre o nome das cidades: {', '.join(ultima['city_names'])}\n"
-            f"- Fitness individual (apresentado como distância em Km): {ultima['fitness_veiculos']}\n"
-            f"Seja claro, objetivo e amigável."
-        )
         openai.api_key = key
-        response = openai.chat.completions.create(
-            model="gpt-4o", #model="gpt-3.5-turbo"
-            messages=[{"role": "user", "content": prompt}],
-            max_tokens=800
-        )
-        explicacao = response.choices[0].message.content
-        print("\n--- Orientação para os motoristas ---")
-        print(explicacao)
-        print("--- Fim da orientação ---\n")
-    except Exception as e:
-        print("Erro ao gerar explicação com IA:", e)
+        structured = {
+            "generation": int(ultima["generation"]),
+            "vehicles": nveh,
+            "routes": all_stats,
+            "overall_km": round(total_geral, 1),
+        }
 
+        system_msg = (
+            "Você é um assistente de logística. Gere um briefing para motoristas SOMENTE com base nos dados fornecidos. "
+            "Não invente cidades ou trechos. Use a ordem exata das pernas e liste os quilômetros de cada trecho e o total."
+        )
+        user_msg = (
+            "muito importante uma mensagem inicial de boas-vindas e agradecimento ao motorista."
+            "Mensagem inicial para o motorista positiva, agradecendo seu trabalho e esforço diário."
+            "Produza um informativo claro para motoristas, em português, no formato:\n"
+            "- Veículo X: começa em <Cidade>, termina em <Cidade>.\n"
+            "  Percurso: CidadeA -> CidadeB -> ...\n"
+            "  Trechos: CidadeA -> CidadeB: Y km; ...\n"
+            "  Quilometragem por trecho (na ordem): 100.0 km, depois 200.0 km, ...\n"
+            "  Total da rota: Z km.\n"
+            "Finalize com o total geral. Seja objetivo, sem floreios.\n\n"
+            "Finalizar com um agradecimento pelo esforço no caso de problemas ligue para um 0800 da empresa crie informações de segurança.\n\n"
+            f"DADOS:\n{json.dumps(structured, ensure_ascii=False)}"
+        )
+
+        resp = openai.chat.completions.create(
+            model="gpt-4o",          # use gpt-3.5-turbo se preferir
+            messages=[
+                {"role": "system", "content": system_msg},
+                {"role": "user", "content": user_msg},
+            ],
+            max_tokens=900,
+            temperature=0.2,
+        )
+        texto = resp.choices[0].message.content
+
+        print("\n--- Informativo para motoristas (IA) ---")
+        print(texto)
+        print("--- Fim do informativo ---\n")
+
+        # Salva no df (última linha)
+        try:
+            df.at[df.index[-1], "LLM_summary"] = texto
+        except Exception:
+            pass
+
+    except Exception as e:
+        print("Erro ao gerar informativo com IA:", e)
+# ...existing code...
 # Dados em formato de texto (copiados da sua mensagem)
 dados = """ID	Cidade	População
 1	Recife	1587707

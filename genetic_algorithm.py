@@ -14,7 +14,26 @@ default_problems = {
 12:[(728, 67), (560, 160), (602, 312), (712, 148), (535, 340), (720, 354), (568, 300), (629, 260), (539, 46), (634, 343), (491, 135), (768, 161)],
 15:[(512, 317), (741, 72), (552, 50), (772, 346), (637, 12), (589, 131), (732, 165), (605, 15), (730, 38), (576, 216), (589, 381), (711, 387), (563, 228), (494, 22), (787, 288)]
 }
+# ...existing code...
 
+def prioritize_priority_cities(individual, priority_city_indices):
+    """
+    Em cada rota (lista de índices), mantém o depósito na posição 0 e
+    move as cidades priorizadas para o início da rota (após o depósito),
+    preservando a ordem relativa dentro de cada grupo.
+    """
+    fixed = []
+    for route in individual:
+        if not route:
+            fixed.append(route)
+            continue
+        depot = route[0]
+        tail = route[1:]
+        pri = [c for c in tail if isinstance(c, int) and c in priority_city_indices]
+        non = [c for c in tail if isinstance(c, int) and c not in priority_city_indices]
+        fixed.append([depot] + pri + non)
+    return fixed
+# ...existing code...
 
 def _route_to_coords_for_fitness(route, cities_locations=None):
     """

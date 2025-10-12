@@ -7,7 +7,7 @@ from genetic_algorithm import (
     default_problems, nearest_neighbour_route, generate_random_population_multi_vehicle,
     calculate_fitness_multi_vehicle, fix_individual, calculate_fitness_multi_vehicle_balanced,heuristic_multi_vehicle_solution, crossover_multi , repair_unique_clients
 )
-from genetic_algorithm import normalize_individual, mutate_individual_preserving_depots, normalize_individual_coords, route_to_coords, remove_extra_depots
+from genetic_algorithm import normalize_individual, mutate_individual_preserving_depots, normalize_individual_coords, route_to_coords, remove_extra_depots, prioritize_priority_cities
 from draw_functions import draw_paths, draw_plot, draw_cities, generate_random_colors
 import sys
 from demo_mutation import mutate_exchange_between_vehicles
@@ -20,8 +20,8 @@ import pandas as pd
 import datetime
 import numbers
 
-# --- CONFIGURAÇÕES ---
-WIDTH, HEIGHT = 1200, 600
+# --- CONFIGURAÇÕES iniciais ---
+WIDTH, HEIGHT = 800, 400
 NODE_RADIUS = 10
 FPS = 30
 PLOT_X_OFFSET = 450
@@ -41,6 +41,18 @@ MAX_STABLE_GENERATIONS = 100
 geracoes_desde_incremento = 0
 historico_best_fitness = []
 
+# prioridades de entrega
+
+# ...existing code...
+PRIORITY_COUNT = 3                 # quantidade de cidades priorizadas
+PRIORITY_RING_COLOR = (255, 0, 0)  # vermelho
+PRIORITY_RING_OFFSET = 6           # raio extra do anel em relação ao NODE_RADIUS
+PRIORITY_RING_WIDTH = 3            # espessura do anel
+# ...existing code...
+
+
+# --- INICIALIZAÇÃO DA POPULAÇÃO ---
+
 
 random.seed(101)  # Escolha qualquer número inteiro para a seed
 # --- GERAÇÃO DAS CIDADES ---
@@ -52,7 +64,12 @@ cities_locations = [
 city_names = list(cidades_df['Cidade'])
 
 start_city_indices = random.sample(range(len(cities_locations)), k=max(1, N_VEHICLES))
-
+ # prioridades não podem ser depósitos
+available_for_priority = list(set(range(len(cities_locations))) - set(start_city_indices))
+priority_city_indices = set(random.sample(
+     available_for_priority,
+     k=min(PRIORITY_COUNT, len(available_for_priority))
+ ))
 # --- INICIALIZAÇÃO DA POPULAÇÃO E CORES ---
 if N_VEHICLES == 1:
     VEHICLE_COLORS = [BLUE]
@@ -67,6 +84,8 @@ else:
     population = [normalize_individual(ind, start_city_indices, cities_locations) for ind in population]
     population = [remove_extra_depots(ind, start_city_indices) for ind in population]
     population = [repair_unique_clients(ind, start_city_indices, len(cities_locations)) for ind in population]
+    population = [prioritize_priority_cities(ind, priority_city_indices) for ind in population]
+
 
 
 best_fitness_values = []
@@ -108,7 +127,13 @@ df = pd.DataFrame(columns=[
     "selection_method",        # método de seleção
     "crossover_method",        # tipo de crossover
     "mutation_method",         # tipo de mutação
-    "LLM_summary"              # texto gerado pelo LLM (explicação de entregas)
+    "LLM_summary",            # texto gerado pelo LLM (explicação de entregas)
+    "PRIORITY_COUNT",
+    "priority_city_indices",   # NOVO
+    "priority_city_names",     # NOVO
+    "start_city_indices",      # NOVO
+    "start_city_names"  
+
 ])
 
 
@@ -159,6 +184,16 @@ while running:
 
     draw_cities(screen, cities_locations, RED, NODE_RADIUS)
     historico_best_fitness.append(best_fitness)
+    
+    for idx in priority_city_indices:
+        x, y = cities_locations[idx]
+        pygame.draw.circle(
+            screen,
+            PRIORITY_RING_COLOR,
+            (x, y),
+            NODE_RADIUS + PRIORITY_RING_OFFSET,
+            PRIORITY_RING_WIDTH
+        )
 
         # Overlay: número de veículos (no início da área do mapa)
     vehicles_text = overlay_font.render(f"Veículos e Rotas: {N_VEHICLES}", True, BLACK)
@@ -212,12 +247,19 @@ while running:
         else:
              # fallback (todas as cidades já usadas): reamostra tudo, ainda aleatório
             start_city_indices = random.sample(range(len(cities_locations)), k=N_VEHICLES)
+        priority_city_indices -= set(start_city_indices)
+
+        reposicao_pool = list(set(range(len(cities_locations))) - set(start_city_indices) - set(priority_city_indices))
+        faltam = max(0, PRIORITY_COUNT - len(priority_city_indices))
+        if faltam > 0 and reposicao_pool:
+               priority_city_indices |= set(random.sample(reposicao_pool, k=min(faltam, len(reposicao_pool))))
 
         population = [heuristic_multi_vehicle_solution(cities_locations, N_VEHICLES)]
         population += generate_random_population_multi_vehicle(cities_locations, POPULATION_SIZE - 1, N_VEHICLES)
         population = [normalize_individual(ind, start_city_indices, cities_locations) for ind in population]
         population = [remove_extra_depots(ind, start_city_indices) for ind in population]
         population = [repair_unique_clients(ind, start_city_indices, len(cities_locations)) for ind in population]
+        population = [prioritize_priority_cities(ind, priority_city_indices) for ind in population]
 
         best_fitness_values = []
         best_solutions = []
@@ -264,6 +306,7 @@ while running:
             child1 = normalize_individual(child1, start_city_indices, cities_locations)
             child1 = remove_extra_depots(child1, start_city_indices)
             child1 = repair_unique_clients(child1, start_city_indices, len(cities_locations))
+            child1 = prioritize_priority_cities(child1, priority_city_indices)
 
             new_population.append(child1)
 
@@ -293,7 +336,12 @@ while running:
         "selection_method": "seleção",         # preencha se usar
         "crossover_method": "crossover",       # preencha se usar
         "mutation_method": "mutação",          # preencha se usar
-        "LLM_summary": None  # preencha quando gerar resumo pela LLM
+        "LLM_summary": None,  # preencha quando gerar resumo pela LLM
+        "PRIORITY_COUNT": PRIORITY_COUNT,                                    # NOVO
+        "priority_city_indices": list(priority_city_indices),                    # NOVO
+        "priority_city_names": [city_names[i] for i in priority_city_indices],   # NOVO
+        "start_city_indices": list(start_city_indices),                           # NOVO
+        "start_city_names": [city_names[i] for i in start_city_indices]          # NOVO
     }
 
     pygame.display.flip()

@@ -14,6 +14,8 @@ default_problems = {
 15:[(512, 317), (741, 72), (552, 50), (772, 346), (637, 12), (589, 131), (732, 165), (605, 15), (730, 38), (576, 216), (589, 381), (711, 387), (563, 228), (494, 22), (787, 288)]
 }
 
+
+
 def generate_random_population(cities_location: List[Tuple[float, float]], population_size: int) -> List[List[Tuple[float, float]]]:
     """
     Generate a random population of routes for a given set of cities.
@@ -131,13 +133,12 @@ def heuristic_multi_vehicle_solution(cities, n_vehicles):
     solution = []
     for v in range(n_vehicles):
         cluster_cities = [cities[i] for i in range(len(cities)) if labels[i] == v]
-        if cluster_cities:
-            route = nearest_neighbour_route(cluster_cities)
-            solution.append(route)
-        else:
-            solution.append([])
+        if not cluster_cities:
+            # Se o cluster ficou vazio, adicione uma cidade aleatória
+            cluster_cities = [random.choice(cities)]
+        route = nearest_neighbour_route(cluster_cities)
+        solution.append(route)
     return solution
-
 
 ### demonstration: crossover test code
 # Example usage:
@@ -297,4 +298,78 @@ if __name__ == '__main__':
         population = new_population
     
 
+
+# ...existing code...
+from typing import List, Tuple
+import random
+
+def _coord_to_index_map(cities_locations):
+    return {tuple(c): i for i, c in enumerate(cities_locations)}
+
+def to_index_route(route, cities_locations):
+    if not route:
+        return []
+    if isinstance(route[0], int):
+        return route[:]
+    m = _coord_to_index_map(cities_locations)
+    return [m[tuple(p)] for p in route]
+
+def to_coord_route(route_idx, cities_locations):
+    return [cities_locations[i] for i in route_idx]
+
+def normalize_route_preserving_depot(route_idx, depot_idx):
+    if not route_idx:
+        return [depot_idx]
+    # remove todas as ocorrências do depot e recoloca no início
+    body = [n for n in route_idx if n != depot_idx]
+    # se o depot existia, também rotaciona se necessário (já removemos acima)
+    return [depot_idx] + body
+
+def normalize_individual(individual, start_city_indices, cities_locations):
+    """
+    Garante que cada rota começa no depot correto e que o depot aparece só no início.
+    individual: List[List[int|tuple]] (índices ou coordenadas)
+    retorna: List[List[int]] (índices)
+    """
+    fixed = []
+    for ridx, route in enumerate(individual):
+        depot_idx = start_city_indices[min(ridx, len(start_city_indices)-1)]
+        route_idx = to_index_route(route, cities_locations)
+        if depot_idx in route_idx:
+            i = route_idx.index(depot_idx)
+            route_idx = route_idx[i:] + route_idx[:i]
+        route_idx = normalize_route_preserving_depot(route_idx, depot_idx)
+        fixed.append(route_idx)
+    return fixed
+
+def mutate_route_preserving_depot(route_idx, mutation_prob):
+    # nunca altera posição 0 (depot)
+    if len(route_idx) <= 2:
+        return route_idx
+    head = route_idx[0]
+    tail = route_idx[1:]
+    if random.random() < mutation_prob:
+        i, j = random.sample(range(len(tail)), 2)
+        tail[i], tail[j] = tail[j], tail[i]
+    return [head] + tail
+
+def mutate_individual_preserving_depots(individual, mutation_prob):
+    return [mutate_route_preserving_depot(r, mutation_prob) for r in individual]
+# ...existing code...
+
+def normalize_individual_coords(individual, start_city_indices, cities_locations):
+    """
+    Aplica a normalização que preserva os depots e devolve SEMPRE listas de coordenadas.
+    """
+    fixed = normalize_individual(individual, start_city_indices, cities_locations)
+    return [route_to_coords(r, cities_locations) for r in fixed]
+
+def route_to_coords(route, cities_locations):
+    """Converte rota (índices ou coords) para sempre retornar coords."""
+    if not route:
+        return []
+    if isinstance(route[0], int):
+        return [cities_locations[i] for i in route]
+    # já é lista de coords; força tuplas de int para o pygame
+    return [tuple(int(x) for x in r) for r in route]
 

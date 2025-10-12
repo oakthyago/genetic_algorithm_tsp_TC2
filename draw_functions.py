@@ -17,6 +17,23 @@ import random
 
 matplotlib.use("Agg")
 
+def route_to_coords(route, cities_locations):
+    """Converte rota (índices ou coords) para sempre retornar coords."""
+    if not route:
+        return []
+    if isinstance(route[0], int):
+        return [cities_locations[i] for i in route]
+    # já é lista de coords; força tuplas de int para o pygame
+    return [tuple(int(x) for x in r) for r in route]
+
+def normalize_individual_coords(individual, start_city_indices, cities_locations):
+    """
+    Aplica a normalização que preserva os depots e devolve SEMPRE listas de coordenadas.
+    """
+    fixed = normalize_individual(individual, start_city_indices, cities_locations)
+    return [route_to_coords(r, cities_locations) for r in fixed]
+
+
 def generate_random_colors(n):
     """Gera n cores RGB aleatórias e brilhantes."""
     colors = []

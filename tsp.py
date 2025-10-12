@@ -3,11 +3,11 @@ from pygame.locals import *
 import random
 import itertools
 from genetic_algorithm import (
-    mutate, order_crossover, generate_random_population, calculate_fitness, sort_population,
+    mutate, order_crossover, generate_random_population, calculate_fitness, remove_extra_depots, sort_population,
     default_problems, nearest_neighbour_route, generate_random_population_multi_vehicle,
-    calculate_fitness_multi_vehicle, fix_individual, calculate_fitness_multi_vehicle_balanced,heuristic_multi_vehicle_solution
+    calculate_fitness_multi_vehicle, fix_individual, calculate_fitness_multi_vehicle_balanced,heuristic_multi_vehicle_solution, crossover_multi , repair_unique_clients
 )
-from genetic_algorithm import normalize_individual, mutate_individual_preserving_depots, normalize_individual_coords, route_to_coords
+from genetic_algorithm import normalize_individual, mutate_individual_preserving_depots, normalize_individual_coords, route_to_coords, remove_extra_depots
 from draw_functions import draw_paths, draw_plot, draw_cities, generate_random_colors
 import sys
 from demo_mutation import mutate_exchange_between_vehicles
@@ -18,6 +18,7 @@ from cidades import chat_sobre_rotas, df as cidades_df
 from cidades import gerar_relatorio
 import pandas as pd
 import datetime
+import numbers
 
 # --- CONFIGURAÇÕES ---
 WIDTH, HEIGHT = 800, 400
@@ -62,11 +63,12 @@ if N_VEHICLES == 1:
 else:
 
     VEHICLE_COLORS = generate_random_colors(N_VEHICLES)
-    # Heurística + aleatórios
     population = [heuristic_multi_vehicle_solution(cities_locations, N_VEHICLES)]
     population += generate_random_population_multi_vehicle(cities_locations, POPULATION_SIZE - 1, N_VEHICLES)
-        # novo: garante depósito fixo na posição 0 de cada rota
-    population = [normalize_individual_coords(ind, start_city_indices, cities_locations) for ind in population]
+    population = [normalize_individual(ind, start_city_indices, cities_locations) for ind in population]
+    population = [remove_extra_depots(ind, start_city_indices) for ind in population]
+    population = [repair_unique_clients(ind, start_city_indices, len(cities_locations)) for ind in population]
+
 
 best_fitness_values = []
 best_solutions = []
@@ -141,11 +143,11 @@ while running:
         best_solution = population[0]
         fitness_veiculos = [round(best_fitness, 2)]
     else:
-        population_fitness = [calculate_fitness_multi_vehicle_balanced(ind) for ind in population]
+        population_fitness = [calculate_fitness_multi_vehicle_balanced(ind, cities_locations) for ind in population]
         population, population_fitness = sort_population(population, population_fitness)
-        best_fitness = calculate_fitness_multi_vehicle_balanced(population[0])
+        best_fitness = calculate_fitness_multi_vehicle_balanced(population[0], cities_locations)
         best_solution = population[0]
-        fitness_veiculos = [round(calculate_fitness(route), 2) for route in best_solution]
+        fitness_veiculos = [round(calculate_fitness(route, cities_locations), 2) for route in best_solution]
 
     best_fitness_values.append(best_fitness)
     best_solutions.append(best_solution)
@@ -172,7 +174,7 @@ while running:
             draw_paths(screen, route_coords, VEHICLE_COLORS[0], width=3)
             start_city = route_coords[0]
             pygame.draw.circle(screen, (0, 255, 0), start_city, NODE_RADIUS + 4, 2)
-        if len(population[1]) >= 2:
+        if len(population) > 1 and len(population[1]) >= 2:
             pop1_coords = route_to_coords(population[1], cities_locations)
             draw_paths(screen, pop1_coords, rgb_color=(128, 128, 128), width=1)
     else:
@@ -199,11 +201,14 @@ while running:
         print(f"Maior rota ainda acima da autonomia ({VEHICLE_AUTONOMY}) após {geracoes_desde_incremento} gerações. Incrementando veículos para {N_VEHICLES + 1} e reiniciando população.")
         N_VEHICLES += 1
         VEHICLE_COLORS = generate_random_colors(N_VEHICLES)
+
         start_city_indices = list(range(N_VEHICLES))
         population = [heuristic_multi_vehicle_solution(cities_locations, N_VEHICLES)]
         population += generate_random_population_multi_vehicle(cities_locations, POPULATION_SIZE - 1, N_VEHICLES)
-        population = [normalize_individual_coords(ind, start_city_indices, cities_locations) for ind in population]
-       
+        population = [normalize_individual(ind, start_city_indices, cities_locations) for ind in population]
+        population = [remove_extra_depots(ind, start_city_indices) for ind in population]
+        population = [repair_unique_clients(ind, start_city_indices, len(cities_locations)) for ind in population]
+
         best_fitness_values = []
         best_solutions = []
         best_overall_fitness = None
@@ -233,14 +238,23 @@ while running:
             if not np.all(np.isfinite(probability)):
                 probability = np.nan_to_num(probability, nan=0.0, posinf=0.0, neginf=0.0)
             parent1, parent2 = random.choices(population, weights=probability, k=2)
-            child1 = order_crossover(parent1, parent2)
 
+            # ANTES: child1 = order_crossover(parent1, parent2)  # errado para multi
+            child1 = crossover_multi(parent1, parent2)  # correto: rota-a-rota
+
+            # mutação preservando depósito (não mexe posição 0 de cada rota)
             child1 = mutate_individual_preserving_depots(child1, MUTATION_PROBABILITY)
-            # Adicione a mutação entre veículos apenas para os últimos 10%:
+
+            # mutação entre veículos (se houver)
             if len(new_population) > POPULATION_SIZE * 0.99:
                 child1 = mutate_exchange_between_vehicles(child1, mutation_prob=0.01)
+
+            # reparar e normalizar em ÍNDICES
             child1 = fix_individual(child1, cities_locations, N_VEHICLES)
-            child1 = normalize_individual_coords(child1, start_city_indices, cities_locations)
+            child1 = normalize_individual(child1, start_city_indices, cities_locations)
+            child1 = remove_extra_depots(child1, start_city_indices)
+            child1 = repair_unique_clients(child1, start_city_indices, len(cities_locations))
+
             new_population.append(child1)
 
     population = new_population

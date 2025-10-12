@@ -66,10 +66,10 @@ def gerar_relatorio(df):
         from openai_key import key
         prompt = (
             f"Explique para os motoristas como será feita a entrega considerando:\n"
-            f"- Número de veículos: {ultima['N_VEHICLES']}\n"
-            f"- Melhor rota: {ultima['best_solution']}\n"
+            f"- Número de veículos e a kilometragem  que cada um andara na rota(fitness): {ultima['N_VEHICLES']}\n"
+            f"- Melhor rota, resaltado veiculo x de cidade y a cidade z ...: {ultima['best_solution']}\n"
             f"- Cidades: {', '.join(ultima['city_names'])}\n"
-            f"- Fitness individual: {ultima['fitness_veiculos']}\n"
+            f"- Fitness individual (apresentado como distância em Km): {ultima['fitness_veiculos']}\n"
             f"Seja claro, objetivo e amigável."
         )
         openai.api_key = key

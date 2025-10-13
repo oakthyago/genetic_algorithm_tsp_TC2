@@ -38,7 +38,7 @@ NODE_RADIUS = 10
 FPS = 30
 PLOT_X_OFFSET = 450
 
-N_CITIES = 25
+N_CITIES = 16
 POPULATION_SIZE = 100
 MUTATION_PROBABILITY = 0.5
 
@@ -47,8 +47,8 @@ RED = (255, 0, 0)
 BLUE = (0, 0, 255)
 
 N_VEHICLES = 1
-VEHICLE_AUTONOMY = 750
-MAX_STABLE_GENERATIONS = 100
+VEHICLE_AUTONOMY = 500
+MAX_STABLE_GENERATIONS = 300
 geracoes_desde_incremento = 0
 historico_best_fitness = []
 
@@ -60,8 +60,8 @@ PRIORITY_RING_WIDTH = 3            # espessura do anel
 
 
 # --- INICIALIZAÇÃO DA POPULAÇÃO ---
-random.seed(42)  # seed para reprodutibilidade
-# --- GERAÇÃO DAS CIDADES ---
+random.seed(142)  # seed para reprodutibilidade
+# --- GERAÇÃO DAS CIDADES ---  
 cities_locations = [
     (random.randint(NODE_RADIUS + PLOT_X_OFFSET, WIDTH - NODE_RADIUS),
      random.randint(NODE_RADIUS, HEIGHT - NODE_RADIUS))
@@ -302,8 +302,8 @@ while running:
             child1 = mutate_individual_preserving_depots(child1, MUTATION_PROBABILITY)
 
             # mutação entre veículos (se houver)
-            if len(new_population) > POPULATION_SIZE * 0.99:
-                child1 = mutate_exchange_between_vehicles(child1, mutation_prob=0.01)
+            if len(new_population) > POPULATION_SIZE * 0.80:
+                child1 = mutate_exchange_between_vehicles(child1, mutation_prob=0.1)
 
             # reparar e normalizar em ÍNDICES
             child1 = fix_individual(child1, cities_locations, N_VEHICLES)

@@ -16,6 +16,53 @@ default_problems = {
 }
 # ...existing code...
 
+# Depósitos estrategicamente espaçados (farthest-point sampling)
+# ...existing code...
+import math
+# ...existing code...
+
+def _sqdist_xy(a, b):
+    ax, ay = a; bx, by = b
+    return (ax - bx) ** 2 + (ay - by) ** 2
+
+def pick_spread_depots(cities_locations, k):
+    """
+    Escolhe k depósitos bem espaçados (farthest-point sampling).
+    Retorna lista de índices.
+    """
+    n = len(cities_locations)
+    if n == 0:
+        return []
+    k = max(1, min(k, n))
+    cx = sum(x for x, _ in cities_locations) / n
+    cy = sum(y for _, y in cities_locations) / n
+    first = max(range(n), key=lambda i: _sqdist_xy(cities_locations[i], (cx, cy)))
+    depots = [first]
+    while len(depots) < k:
+        candidates = [i for i in range(n) if i not in depots]
+        def min_dist(i):
+            return min(_sqdist_xy(cities_locations[i], cities_locations[d]) for d in depots)
+        next_idx = max(candidates, key=min_dist)
+        depots.append(next_idx)
+    return depots
+
+def pick_next_farthest_depot(cities_locations, current_depots, candidates=None):
+    """
+    Escolhe 1 novo depósito maximizando a distância mínima aos depósitos atuais.
+    Retorna índice ou None se não houver candidato.
+    """
+    n = len(cities_locations)
+    if n == 0:
+        return None
+    if candidates is None:
+        candidates = [i for i in range(n) if i not in current_depots]
+    if not candidates:
+        return None
+    def min_dist(i):
+        return min(_sqdist_xy(cities_locations[i], cities_locations[d]) for d in current_depots)
+    return max(candidates, key=min_dist)
+# ...existing code...
+
 def prioritize_priority_cities(individual, priority_city_indices):
     """
     Em cada rota (lista de índices), mantém o depósito na posição 0 e

@@ -5,12 +5,15 @@ import sys
 import numpy as np
 import pandas as pd
 import datetime
+import math
 
 from draw_functions import draw_paths, draw_plot, draw_cities, generate_random_colors
 from demo_mutation import mutate_exchange_between_vehicles
 from genetic_algorithm import (
     mutate,
     order_crossover,
+    pick_next_farthest_depot,
+    pick_spread_depots,
     generate_random_population,
     calculate_fitness,
     sort_population,
@@ -30,12 +33,12 @@ from genetic_algorithm import (
 from cidades import chat_sobre_rotas, gerar_relatorio, df as cidades_df
 
 # --- CONFIGURAÇÕES iniciais ---
-WIDTH, HEIGHT = 800, 400
+WIDTH, HEIGHT = 1200, 600
 NODE_RADIUS = 10
 FPS = 30
 PLOT_X_OFFSET = 450
 
-N_CITIES = 12
+N_CITIES = 25
 POPULATION_SIZE = 100
 MUTATION_PROBABILITY = 0.5
 
@@ -57,7 +60,7 @@ PRIORITY_RING_WIDTH = 3            # espessura do anel
 
 
 # --- INICIALIZAÇÃO DA POPULAÇÃO ---
-random.seed(101)  # seed para reprodutibilidade
+random.seed(42)  # seed para reprodutibilidade
 # --- GERAÇÃO DAS CIDADES ---
 cities_locations = [
     (random.randint(NODE_RADIUS + PLOT_X_OFFSET, WIDTH - NODE_RADIUS),
@@ -66,7 +69,7 @@ cities_locations = [
 ]
 city_names = list(cidades_df['Cidade'])
 
-start_city_indices = random.sample(range(len(cities_locations)), k=max(1, N_VEHICLES))
+start_city_indices = pick_spread_depots(cities_locations, N_VEHICLES)
  # prioridades não podem ser depósitos
 available_for_priority = list(set(range(len(cities_locations))) - set(start_city_indices))
 priority_city_indices = set(random.sample(
@@ -240,18 +243,21 @@ while running:
         N_VEHICLES += 1
         VEHICLE_COLORS = generate_random_colors(N_VEHICLES)
 
-        available = list(set(range(len(cities_locations))) - set(start_city_indices))
-        if available:
-            start_city_indices.append(random.choice(available))
+        # novo depósito: maximiza distância mínima aos depósitos existentes
+        available = [i for i in range(len(cities_locations)) if i not in start_city_indices]
+        new_depot = pick_next_farthest_depot(cities_locations, start_city_indices, available)
+        if new_depot is not None:
+            start_city_indices.append(new_depot)
         else:
-             # fallback (todas as cidades já usadas): reamostra tudo, ainda aleatório
-            start_city_indices = random.sample(range(len(cities_locations)), k=N_VEHICLES)
-        priority_city_indices -= set(start_city_indices)
+            start_city_indices = pick_spread_depots(cities_locations, N_VEHICLES)
 
+
+        # garantir prioridades ≠ depósitos e repor se necessário
+        priority_city_indices -= set(start_city_indices)
         reposicao_pool = list(set(range(len(cities_locations))) - set(start_city_indices) - set(priority_city_indices))
         faltam = max(0, PRIORITY_COUNT - len(priority_city_indices))
         if faltam > 0 and reposicao_pool:
-               priority_city_indices |= set(random.sample(reposicao_pool, k=min(faltam, len(reposicao_pool))))
+            priority_city_indices |= set(random.sample(reposicao_pool, k=min(faltam, len(reposicao_pool))))
 
         population = [heuristic_multi_vehicle_solution(cities_locations, N_VEHICLES)]
         population += generate_random_population_multi_vehicle(cities_locations, POPULATION_SIZE - 1, N_VEHICLES)

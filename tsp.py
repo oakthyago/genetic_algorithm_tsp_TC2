@@ -1,24 +1,33 @@
 import pygame
-from pygame.locals import *
 import random
 import itertools
-from genetic_algorithm import (
-    mutate, order_crossover, generate_random_population, calculate_fitness, remove_extra_depots, sort_population,
-    default_problems, nearest_neighbour_route, generate_random_population_multi_vehicle,
-    calculate_fitness_multi_vehicle, fix_individual, calculate_fitness_multi_vehicle_balanced,heuristic_multi_vehicle_solution, crossover_multi , repair_unique_clients
-)
-from genetic_algorithm import normalize_individual, mutate_individual_preserving_depots, normalize_individual_coords, route_to_coords, remove_extra_depots, prioritize_priority_cities
-from draw_functions import draw_paths, draw_plot, draw_cities, generate_random_colors
 import sys
-from demo_mutation import mutate_exchange_between_vehicles
 import numpy as np
-from benchmark_att48 import *
-from sklearn.cluster import KMeans
-from cidades import chat_sobre_rotas, df as cidades_df
-from cidades import gerar_relatorio
 import pandas as pd
 import datetime
-import numbers
+
+from draw_functions import draw_paths, draw_plot, draw_cities, generate_random_colors
+from demo_mutation import mutate_exchange_between_vehicles
+from genetic_algorithm import (
+    mutate,
+    order_crossover,
+    generate_random_population,
+    calculate_fitness,
+    sort_population,
+    nearest_neighbour_route,
+    generate_random_population_multi_vehicle,
+    fix_individual,
+    calculate_fitness_multi_vehicle_balanced,
+    heuristic_multi_vehicle_solution,
+    crossover_multi,
+    repair_unique_clients,
+    normalize_individual,
+    mutate_individual_preserving_depots,
+    route_to_coords,
+    remove_extra_depots,
+    prioritize_priority_cities,
+)
+from cidades import chat_sobre_rotas, gerar_relatorio, df as cidades_df
 
 # --- CONFIGURAÇÕES iniciais ---
 WIDTH, HEIGHT = 800, 400
@@ -30,7 +39,6 @@ N_CITIES = 12
 POPULATION_SIZE = 100
 MUTATION_PROBABILITY = 0.5
 
-WHITE = (255, 255, 255)
 BLACK = (125, 125, 125)
 RED = (255, 0, 0)
 BLUE = (0, 0, 255)
@@ -42,19 +50,14 @@ geracoes_desde_incremento = 0
 historico_best_fitness = []
 
 # prioridades de entrega
-
-# ...existing code...
 PRIORITY_COUNT = 3                 # quantidade de cidades priorizadas
 PRIORITY_RING_COLOR = (255, 0, 0)  # vermelho
 PRIORITY_RING_OFFSET = 6           # raio extra do anel em relação ao NODE_RADIUS
 PRIORITY_RING_WIDTH = 3            # espessura do anel
-# ...existing code...
 
 
 # --- INICIALIZAÇÃO DA POPULAÇÃO ---
-
-
-random.seed(101)  # Escolha qualquer número inteiro para a seed
+random.seed(101)  # seed para reprodutibilidade
 # --- GERAÇÃO DAS CIDADES ---
 cities_locations = [
     (random.randint(NODE_RADIUS + PLOT_X_OFFSET, WIDTH - NODE_RADIUS),
@@ -90,7 +93,6 @@ else:
 
 best_fitness_values = []
 best_solutions = []
-random.seed()
 # --- INICIALIZAÇÃO DO PYGAME ---
 pygame.init()
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
@@ -103,8 +105,6 @@ paused = False
 running = True
 
 show_city_names = False
-stable_generations = 0
-last_fitness_veiculos = None
 
 df = pd.DataFrame(columns=[
     "generation",              # geração atual
@@ -179,8 +179,7 @@ while running:
 
     # --- DESENHO DOS GRÁFICOS ---
 
-    draw_plot(screen, list(range(len(best_fitness_values))),
-              best_fitness_values, y_label="Fitness - Distance (pxls)")
+    draw_plot(screen, list(range(len(best_fitness_values))), best_fitness_values, y_label="Fitness - Distance (pxls)")
 
     draw_cities(screen, cities_locations, RED, NODE_RADIUS)
     historico_best_fitness.append(best_fitness)
@@ -195,7 +194,7 @@ while running:
             PRIORITY_RING_WIDTH
         )
 
-        # Overlay: número de veículos (no início da área do mapa)
+    # Overlay: número de veículos (no início da área do mapa)
     vehicles_text = overlay_font.render(f"Veículos e Rotas: {N_VEHICLES}", True, BLACK)
     screen.blit(vehicles_text, (PLOT_X_OFFSET + 10, 10))
 
@@ -263,7 +262,6 @@ while running:
 
         best_fitness_values = []
         best_solutions = []
-        best_overall_fitness = None
         generation_counter = itertools.count(start=1)
         geracoes_desde_incremento = 0  # zera o contador
         historico_best_fitness = []    # zera o histórico para o novo ciclo
@@ -326,7 +324,7 @@ while running:
         "vehicle_autonomy": VEHICLE_AUTONOMY,
         "load_capacity": None,  # preencha se usar
         "delivery_priority": None,  # preencha se usar
-        "stable_generations": stable_generations,
+    "stable_generations": geracoes_desde_incremento,
         "mutation_probability": MUTATION_PROBABILITY,
         "population_size": POPULATION_SIZE,
         "avg_fitness": float(np.mean(population_fitness)),

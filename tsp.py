@@ -38,7 +38,7 @@ NODE_RADIUS = 10
 FPS = 30
 PLOT_X_OFFSET = 450
 
-N_CITIES = 16
+N_CITIES = 25
 POPULATION_SIZE = 100
 MUTATION_PROBABILITY = 0.5
 
@@ -47,13 +47,13 @@ RED = (255, 0, 0)
 BLUE = (0, 0, 255)
 
 N_VEHICLES = 1
-VEHICLE_AUTONOMY = 500
-MAX_STABLE_GENERATIONS = 300
+VEHICLE_AUTONOMY = 1000
+MAX_STABLE_GENERATIONS = 500
 geracoes_desde_incremento = 0
 historico_best_fitness = []
 
 # prioridades de entrega
-PRIORITY_COUNT = 3                 # quantidade de cidades priorizadas
+PRIORITY_COUNT = 2                # quantidade de cidades priorizadas
 PRIORITY_RING_COLOR = (255, 0, 0)  # vermelho
 PRIORITY_RING_OFFSET = 6           # raio extra do anel em relação ao NODE_RADIUS
 PRIORITY_RING_WIDTH = 3            # espessura do anel
@@ -84,9 +84,10 @@ if N_VEHICLES == 1:
     population += generate_random_population(cities_locations, POPULATION_SIZE - 1)
 else:
 
-    VEHICLE_COLORS = generate_random_colors(N_VEHICLES)
-    population = [heuristic_multi_vehicle_solution(cities_locations, N_VEHICLES)]
+    VEHICLE_COLORS = generate_random_colors(N_VEHICLES) #cor das rotas
+    population = [heuristic_multi_vehicle_solution(cities_locations, N_VEHICLES)] #k-means
     population += generate_random_population_multi_vehicle(cities_locations, POPULATION_SIZE - 1, N_VEHICLES)
+    # cada rota começa com o deposito correto e remove depositos por bugs
     population = [normalize_individual(ind, start_city_indices, cities_locations) for ind in population]
     population = [remove_extra_depots(ind, start_city_indices) for ind in population]
     population = [repair_unique_clients(ind, start_city_indices, len(cities_locations)) for ind in population]
@@ -302,7 +303,7 @@ while running:
             child1 = mutate_individual_preserving_depots(child1, MUTATION_PROBABILITY)
 
             # mutação entre veículos (se houver)
-            if len(new_population) > POPULATION_SIZE * 0.80:
+            if len(new_population) > POPULATION_SIZE * 0.50:
                 child1 = mutate_exchange_between_vehicles(child1, mutation_prob=0.1)
 
             # reparar e normalizar em ÍNDICES
